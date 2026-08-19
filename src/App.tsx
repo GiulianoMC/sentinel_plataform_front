@@ -76,6 +76,7 @@ export default function App() {
   }
 
   function handleVideoRegistered(video: Video) {
+    refetchVideos();
     setSelectedId(video.youtube_id);
     setPage('dashboard');
   }
@@ -86,7 +87,7 @@ export default function App() {
       <aside className="h-screen w-64 fixed left-0 top-0 bg-[#131b2e] flex-col py-8 px-4 gap-y-4 z-50 hidden md:flex">
         <div className="mb-8 px-2">
           <h1 className="text-lg font-black text-[#bdc2ff]">Sentinela</h1>
-          <p className="text-[10px] font-medium uppercase tracking-wider text-[#dae2fd]/50">Intelligence Terminal</p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-[#dae2fd]/50">Terminal de Inteligência</p>
         </div>
         <nav className="flex-1 space-y-1">
           <button
@@ -98,7 +99,7 @@ export default function App() {
             }`}
           >
             <LayoutDashboard size={20} />
-            <span className="text-sm font-medium uppercase tracking-wider">Dashboard</span>
+            <span className="text-sm font-medium uppercase tracking-wider">Painel</span>
           </button>
           <button
             onClick={() => setPage('register')}
@@ -114,12 +115,12 @@ export default function App() {
           {/* Próxima fase: análise agregada por canal */}
           <span className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#dae2fd]/25 cursor-not-allowed select-none">
             <LineChart size={20} />
-            <span className="text-sm font-medium uppercase tracking-wider">Channel Analysis</span>
+            <span className="text-sm font-medium uppercase tracking-wider">Análise por Canal</span>
           </span>
           {/* Próxima fase: exportação de relatórios */}
           <span className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#dae2fd]/25 cursor-not-allowed select-none">
             <FileText size={20} />
-            <span className="text-sm font-medium uppercase tracking-wider">Reports</span>
+            <span className="text-sm font-medium uppercase tracking-wider">Relatórios</span>
           </span>
         </nav>
       </aside>
@@ -158,9 +159,9 @@ export default function App() {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
               <div>
                 <nav className="flex items-center gap-2 text-[10px] text-primary/50 uppercase tracking-widest mb-1">
-                  <span>Terminal</span>
+                  <span>Painel</span>
                   <ChevronRight size={12} />
-                  <span>Video Analysis</span>
+                  <span>Análise de Vídeo</span>
                 </nav>
                 <h2 className="text-3xl font-extrabold tracking-tight text-[#dae2fd] flex items-center gap-3 flex-wrap">
                   Análise:{' '}
@@ -259,16 +260,20 @@ export default function App() {
               <>
                 <SummaryCards data={summary} loading={loading} />
 
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                  <div className="lg:col-span-2">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                  <div className="lg:col-span-4">
                     <IntentionsDonut data={intentions} loading={loading} />
                   </div>
+                  {/* Célula relativa: estica para igualar a altura do Donut via items-stretch */}
+                  <div className="lg:col-span-5 relative min-h-[300px]">
+                    <div className="absolute inset-0">
+                      <ProductsTable data={products} loading={loading} />
+                    </div>
+                  </div>
                   <div className="lg:col-span-3">
-                    <ProductsTable data={products} loading={loading} />
+                    <SentimentBars data={sentiment} loading={loading} />
                   </div>
                 </div>
-
-                <SentimentBars data={sentiment} loading={loading} />
               </>
             )}
 

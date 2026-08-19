@@ -40,9 +40,9 @@ export function RegisterVideoPage({ onRegistered }: Props) {
       {/* Page Title */}
       <div>
         <nav className="flex items-center gap-2 text-[10px] text-primary/50 uppercase tracking-widest mb-1">
-          <span>Terminal</span>
+          <span>Painel</span>
           <ChevronRight size={12} />
-          <span>Register Video</span>
+          <span>Registar Vídeo</span>
         </nav>
         <h2 className="text-3xl font-extrabold tracking-tight text-on-surface">
           Registar Vídeo

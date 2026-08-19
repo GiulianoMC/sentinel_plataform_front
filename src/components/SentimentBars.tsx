@@ -1,11 +1,11 @@
 import type { SentimentResponse } from '../api/types';
 
 const LEVELS = [
-  { key: '5', label: 'Muito Positivo', color: '#4ade80' },
-  { key: '4', label: 'Positivo',       color: '#89ceff' },
-  { key: '3', label: 'Neutro',         color: '#bdc2ff' },
-  { key: '2', label: 'Negativo',       color: '#ffcc80' },
-  { key: '1', label: 'Muito Negativo', color: '#ffb4ab' },
+  { key: '5', label: 'Muito Positivo', short: 'M. Positivo', color: '#4ade80' },
+  { key: '4', label: 'Positivo',       short: 'Positivo',    color: '#89ceff' },
+  { key: '3', label: 'Neutro',         short: 'Neutro',      color: '#bdc2ff' },
+  { key: '2', label: 'Negativo',       short: 'Negativo',    color: '#ffcc80' },
+  { key: '1', label: 'Muito Negativo', short: 'M. Negativo', color: '#ffb4ab' },
 ];
 
 interface Props {
@@ -31,32 +31,36 @@ export function SentimentBars({ data, loading }: Props) {
         )}
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {LEVELS.map(level => {
           const count = dist[level.key] ?? 0;
           const pct = loading ? 40 : (count / max) * 100;
 
           return (
-            <div key={level.key} className="flex items-center gap-4">
-              <div className="w-6 text-center text-sm font-black text-on-surface-variant">{level.key}</div>
-              <div className="flex-1 flex items-center gap-3">
-                <div className="flex-1 h-6 bg-surface-container-highest rounded-full overflow-hidden">
+            <div key={level.key} className="flex items-center gap-2">
+              <span
+                className="text-[10px] font-semibold flex-shrink-0 text-right"
+                style={{ color: level.color, width: '72px' }}
+              >
+                {level.short}
+              </span>
+              <div className="flex-1 flex items-center gap-2 min-w-0">
+                <div className="flex-1 h-3 bg-surface-container-highest rounded-full overflow-hidden min-w-0">
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${loading ? 'shimmer' : ''}`}
+                    className={`h-full rounded-r-full transition-all duration-500 ${loading ? 'shimmer' : ''}`}
                     style={{
                       width: `${pct}%`,
                       backgroundColor: loading ? undefined : level.color,
-                      minWidth: count > 0 || loading ? '4px' : '0',
+                      minWidth: count > 0 || loading ? '6px' : '0',
                     }}
                   />
                 </div>
                 {loading ? (
-                  <div className="h-3 w-8 shimmer rounded bg-surface-container-highest" />
+                  <div className="h-3 w-6 shimmer rounded bg-surface-container-highest flex-shrink-0" />
                 ) : (
-                  <span className="text-sm font-mono font-bold text-on-surface-variant w-8 text-right">{count}</span>
+                  <span className="text-xs font-mono font-bold text-on-surface-variant w-7 text-right flex-shrink-0">{count}</span>
                 )}
               </div>
-              <span className="text-xs text-on-surface-variant w-28 hidden sm:block">{level.label}</span>
             </div>
           );
         })}
