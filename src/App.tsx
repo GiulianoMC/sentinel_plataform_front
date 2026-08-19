@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import {
+  Home,
   LayoutDashboard,
   PlusSquare,
   ChevronRight,
@@ -23,6 +24,7 @@ import { IntentionsDonut } from './components/IntentionsDonut';
 import { ProductsTable } from './components/ProductsTable';
 import { SentimentBars } from './components/SentimentBars';
 import { RegisterVideoPage } from './pages/RegisterVideoPage';
+import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { AdminPage } from './pages/AdminPage';
@@ -30,10 +32,10 @@ import { PrivateRoute } from './components/PrivateRoute';
 import { AdminRoute } from './components/AdminRoute';
 import type { Video } from './api/types';
 
-type Page = 'dashboard' | 'register';
+type Page = 'home' | 'dashboard' | 'register';
 
 function AppLayout() {
-  const [page, setPage] = useState<Page>('dashboard');
+  const [page, setPage] = useState<Page>('home');
   const { videos, loading: videosLoading, error: videosError, refetchVideos } = useVideos();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { user, logout } = useAuth();
@@ -94,7 +96,7 @@ function AppLayout() {
   function handleVideoRegistered(video: Video) {
     refetchVideos();
     setSelectedId(video.youtube_id);
-    setPage('dashboard');
+    setPage('home');
   }
 
   const isAdmin = user?.role === 'admin';
@@ -108,6 +110,17 @@ function AppLayout() {
           <p className="text-[10px] font-medium uppercase tracking-wider text-[#dae2fd]/50">Terminal de Inteligência</p>
         </div>
         <nav className="flex-1 space-y-1">
+          <button
+            onClick={() => { setPage('home'); navigate('/'); }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ease-in-out ${
+              page === 'home' && location.pathname === '/'
+                ? 'bg-gradient-to-r from-[#bdc2ff]/10 to-transparent text-[#bdc2ff] border-r-2 border-[#bdc2ff]'
+                : 'text-[#dae2fd]/50 hover:text-[#dae2fd] hover:bg-[#222a3d]'
+            }`}
+          >
+            <Home size={20} />
+            <span className="text-sm font-medium uppercase tracking-wider">Início</span>
+          </button>
           <button
             onClick={() => { setPage('dashboard'); navigate('/'); }}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ease-in-out ${
@@ -168,11 +181,21 @@ function AppLayout() {
                 onChange={setSelectedId}
                 loading={videosLoading}
               />
+            ) : page === 'home' ? (
+              <span className="text-sm font-semibold text-on-surface-variant">Visão Geral</span>
             ) : (
               <span className="text-sm font-semibold text-on-surface-variant">Registar Vídeo</span>
             )}
             {/* Navegação mobile */}
             <nav className="flex items-center gap-1 md:hidden ml-2">
+              <button
+                onClick={() => { setPage('home'); navigate('/'); }}
+                className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                  page === 'home' ? 'text-primary bg-primary/10' : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                Início
+              </button>
               <button
                 onClick={() => { setPage('dashboard'); navigate('/'); }}
                 className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${
@@ -218,7 +241,7 @@ function AppLayout() {
 
         {page === 'register' ? (
           <RegisterVideoPage onRegistered={handleVideoRegistered} />
-        ) : (
+        ) : page === 'dashboard' ? (
           <div className="pt-24 pb-12 px-6 lg:px-10 max-w-7xl mx-auto space-y-8">
 
             {/* Page Title */}
@@ -343,6 +366,17 @@ function AppLayout() {
               </>
             )}
 
+          </div>
+        ) : (
+          <div className="pt-24 pb-12 px-6 lg:px-10 max-w-7xl mx-auto">
+            <HomePage
+              videos={videos}
+              onSelectVideo={id => {
+                setSelectedId(id);
+                setPage('dashboard');
+              }}
+              onRegister={() => setPage('register')}
+            />
           </div>
         )}
       </main>

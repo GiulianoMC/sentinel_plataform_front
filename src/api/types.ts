@@ -13,6 +13,19 @@ export interface VideoSummary {
   average_sentiment: number | null;
 }
 
+export interface VideoOverviewItem extends VideoSummary {
+  titulo: string | null;
+  created_at: string;
+}
+
+export interface VideoOverview {
+  total_videos: number;
+  total_comments: number;
+  analyzed_comments: number;
+  average_sentiment: number | null;
+  videos: VideoOverviewItem[];
+}
+
 export interface IntentItem {
   intent: string;
   count: number;

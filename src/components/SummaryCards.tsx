@@ -1,13 +1,13 @@
 import { MessageSquare, Activity, Smile } from 'lucide-react';
 import type { VideoSummary } from '../api/types';
 
-function sentimentMeta(avg: number | null): { label: string; color: string } {
-  if (avg === null) return { label: '—', color: 'text-on-surface-variant' };
-  if (avg >= 4.5) return { label: 'Excelente', color: 'text-green-400' };
-  if (avg >= 3.5) return { label: 'Positivo',  color: 'text-green-400' };
-  if (avg >= 2.5) return { label: 'Neutro',    color: 'text-primary' };
-  if (avg >= 1.5) return { label: 'Negativo',  color: 'text-error' };
-  return              { label: 'Crítico',    color: 'text-error' };
+export function sentimentMeta(avg: number | null): { label: string; color: string; bg: string; bar: string } {
+  if (avg === null) return { label: '—', color: 'text-on-surface-variant', bg: 'bg-surface-container-high', bar: 'bg-on-surface-variant/30' };
+  if (avg >= 4.5) return { label: 'Excelente', color: 'text-green-400', bg: 'bg-green-500/10', bar: 'bg-green-400' };
+  if (avg >= 3.5) return { label: 'Positivo',  color: 'text-green-400', bg: 'bg-green-500/10', bar: 'bg-green-400' };
+  if (avg >= 2.5) return { label: 'Neutro',    color: 'text-primary',  bg: 'bg-primary/10',  bar: 'bg-primary' };
+  if (avg >= 1.5) return { label: 'Negativo',  color: 'text-error',    bg: 'bg-error/10',    bar: 'bg-error' };
+  return              { label: 'Crítico',    color: 'text-error',    bg: 'bg-error/10',    bar: 'bg-error' };
 }
 
 interface Props {

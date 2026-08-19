@@ -1,5 +1,8 @@
 import { get, post } from './client';
-import type { VideoSummary, IntentionsResponse, ProductsResponse, SentimentResponse } from './types';
+import type { VideoOverview, VideoSummary, IntentionsResponse, ProductsResponse, SentimentResponse } from './types';
+
+export const fetchOverview = () =>
+  get<VideoOverview>('/analytics/overview');
 
 export const fetchSummary = (id: string) =>
   get<VideoSummary>(`/analytics/${id}/summary`);
