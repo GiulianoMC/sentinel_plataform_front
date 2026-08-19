@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
-  LineChart,
-  FileText,
   PlusSquare,
   ChevronRight,
   RefreshCw,
   Cpu,
   Trash2,
+  LogOut,
+  Users,
 } from 'lucide-react';
 
+import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './hooks/useAuth';
 import { useVideos } from './hooks/useVideos';
 import { useAnalytics } from './hooks/useAnalytics';
 import { reprocessAI } from './api/analytics';
@@ -20,14 +23,22 @@ import { IntentionsDonut } from './components/IntentionsDonut';
 import { ProductsTable } from './components/ProductsTable';
 import { SentimentBars } from './components/SentimentBars';
 import { RegisterVideoPage } from './pages/RegisterVideoPage';
+import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
+import { AdminPage } from './pages/AdminPage';
+import { PrivateRoute } from './components/PrivateRoute';
+import { AdminRoute } from './components/AdminRoute';
 import type { Video } from './api/types';
 
 type Page = 'dashboard' | 'register';
 
-export default function App() {
+function AppLayout() {
   const [page, setPage] = useState<Page>('dashboard');
   const { videos, loading: videosLoading, error: videosError, refetchVideos } = useVideos();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     if (!selectedId && videos.length > 0) {
@@ -42,6 +53,11 @@ export default function App() {
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  async function handleLogout() {
+    await logout();
+    navigate('/login');
+  }
 
   async function handleDelete() {
     if (!selectedId) return;
@@ -81,6 +97,8 @@ export default function App() {
     setPage('dashboard');
   }
 
+  const isAdmin = user?.role === 'admin';
+
   return (
     <div className="min-h-screen bg-surface text-on-surface font-body">
       {/* SideNavBar */}
@@ -91,9 +109,9 @@ export default function App() {
         </div>
         <nav className="flex-1 space-y-1">
           <button
-            onClick={() => setPage('dashboard')}
+            onClick={() => { setPage('dashboard'); navigate('/'); }}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ease-in-out ${
-              page === 'dashboard'
+              page === 'dashboard' && location.pathname === '/'
                 ? 'bg-gradient-to-r from-[#bdc2ff]/10 to-transparent text-[#bdc2ff] border-r-2 border-[#bdc2ff]'
                 : 'text-[#dae2fd]/50 hover:text-[#dae2fd] hover:bg-[#222a3d]'
             }`}
@@ -102,9 +120,9 @@ export default function App() {
             <span className="text-sm font-medium uppercase tracking-wider">Painel</span>
           </button>
           <button
-            onClick={() => setPage('register')}
+            onClick={() => { setPage('register'); navigate('/'); }}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ease-in-out ${
-              page === 'register'
+              page === 'register' && location.pathname === '/'
                 ? 'bg-gradient-to-r from-[#bdc2ff]/10 to-transparent text-[#bdc2ff] border-r-2 border-[#bdc2ff]'
                 : 'text-[#dae2fd]/50 hover:text-[#dae2fd] hover:bg-[#222a3d]'
             }`}
@@ -112,41 +130,89 @@ export default function App() {
             <PlusSquare size={20} />
             <span className="text-sm font-medium uppercase tracking-wider">Registar Vídeo</span>
           </button>
-          {/* Próxima fase: análise agregada por canal */}
-          <span className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#dae2fd]/25 cursor-not-allowed select-none">
-            <LineChart size={20} />
-            <span className="text-sm font-medium uppercase tracking-wider">Análise por Canal</span>
-          </span>
-          {/* Próxima fase: exportação de relatórios */}
-          <span className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#dae2fd]/25 cursor-not-allowed select-none">
-            <FileText size={20} />
-            <span className="text-sm font-medium uppercase tracking-wider">Relatórios</span>
-          </span>
+          {isAdmin && (
+            <button
+              onClick={() => navigate('/admin')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ease-in-out ${
+                location.pathname === '/admin'
+                  ? 'bg-gradient-to-r from-[#bdc2ff]/10 to-transparent text-[#bdc2ff] border-r-2 border-[#bdc2ff]'
+                  : 'text-[#dae2fd]/50 hover:text-[#dae2fd] hover:bg-[#222a3d]'
+              }`}
+            >
+              <Users size={20} />
+              <span className="text-sm font-medium uppercase tracking-wider">Administração</span>
+            </button>
+          )}
+          
         </nav>
+        <div className="pt-4 border-t border-outline-variant/10">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#dae2fd]/50 hover:text-error hover:bg-[#222a3d] transition-colors"
+          >
+            <LogOut size={20} />
+            <span className="text-sm font-medium uppercase tracking-wider">Sair</span>
+          </button>
+        </div>
       </aside>
 
       {/* Main Content Area */}
       <main className="md:ml-64 min-h-screen">
         {/* TopNavBar */}
-        <header className="fixed top-0 right-0 left-0 md:left-64 z-40 bg-[#0b1326]/60 backdrop-blur-xl flex justify-between items-center px-6 h-16">
-          {page === 'dashboard' ? (
-            <VideoSelector
-              videos={videos}
-              selectedId={selectedId}
-              onChange={setSelectedId}
-              loading={videosLoading}
-            />
-          ) : (
-            <span className="text-sm font-semibold text-on-surface-variant">Registar Vídeo</span>
-          )}
-          <div className="flex items-center gap-3 pl-4 border-l border-outline-variant/20">
+        <header className="fixed top-0 right-0 left-0 md:left-64 z-40 bg-[#0b1326]/60 backdrop-blur-xl flex justify-between items-center px-6 h-16 gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            {page === 'dashboard' ? (
+              <VideoSelector
+                videos={videos}
+                selectedId={selectedId}
+                onChange={setSelectedId}
+                loading={videosLoading}
+              />
+            ) : (
+              <span className="text-sm font-semibold text-on-surface-variant">Registar Vídeo</span>
+            )}
+            {/* Navegação mobile */}
+            <nav className="flex items-center gap-1 md:hidden ml-2">
+              <button
+                onClick={() => { setPage('dashboard'); navigate('/'); }}
+                className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                  page === 'dashboard' ? 'text-primary bg-primary/10' : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                Painel
+              </button>
+              <button
+                onClick={() => { setPage('register'); navigate('/'); }}
+                className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                  page === 'register' ? 'text-primary bg-primary/10' : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                Registar
+              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => navigate('/admin')}
+                  className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                    location.pathname === '/admin' ? 'text-primary bg-primary/10' : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  Admin
+                </button>
+              )}
+            </nav>
+          </div>
+          <div className="flex items-center gap-3 pl-4 border-l border-outline-variant/20 flex-shrink-0">
             <div className="text-right hidden sm:block">
-              <p className="text-xs font-bold text-[#dae2fd]">Sentinela</p>
-              <p className="text-[10px] text-primary/60">v1.0</p>
+              <p className="text-xs font-bold text-[#dae2fd]">{user?.email ?? 'Sentinela'}</p>
+              <p className="text-[10px] text-primary/60">{user?.role === 'admin' ? 'admin' : 'v1.0'}</p>
             </div>
-            <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center">
-              <span className="text-xs font-bold text-primary">S</span>
-            </div>
+            <button
+              onClick={handleLogout}
+              title="Sair"
+              className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center hover:bg-primary/30 transition-colors"
+            >
+              <LogOut size={14} className="text-primary" />
+            </button>
           </div>
         </header>
 
@@ -281,5 +347,30 @@ export default function App() {
         )}
       </main>
     </div>
+  );
+}
+
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+      <Route element={<PrivateRoute />}>
+        <Route path="/admin" element={<AdminRoute />}>
+          <Route index element={<AdminPage />} />
+        </Route>
+        <Route path="/*" element={<AppLayout />} />
+      </Route>
+    </Routes>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
