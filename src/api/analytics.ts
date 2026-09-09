@@ -26,3 +26,16 @@ export const reprocessAI = (youtubeId: string, onlyErrors = true) =>
     `/reprocess/ai?youtube_id=${youtubeId}&only_errors=${onlyErrors}`,
     null,
   );
+
+export interface ChromaMetadataResult {
+  updated?: number;
+  message?: string;
+}
+
+/**
+ * Backfill dos metadados no ChromaDB. Comentários indexados antes do
+ * write-back só têm video_id gravado e não passam em nenhum filtro da busca
+ * semântica — sem isto, a busca filtrada volta vazia.
+ */
+export const reprocessChromaMetadata = (youtubeId: string) =>
+  post<ChromaMetadataResult>(`/reprocess/chroma-metadata?youtube_id=${youtubeId}`, null);

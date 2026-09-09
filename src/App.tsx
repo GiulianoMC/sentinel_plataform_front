@@ -23,6 +23,10 @@ import { SummaryCards } from './components/SummaryCards';
 import { IntentionsDonut } from './components/IntentionsDonut';
 import { ProductsTable } from './components/ProductsTable';
 import { SentimentBars } from './components/SentimentBars';
+import { InsightCards } from './components/insights/InsightCards';
+import { AskInsight } from './components/insights/AskInsight';
+import { DashboardTabs, tabPanelId } from './components/DashboardTabs';
+import type { DashboardTab } from './components/DashboardTabs';
 import { RegisterVideoPage } from './pages/RegisterVideoPage';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
@@ -55,6 +59,10 @@ function AppLayout() {
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // A aba sobrevive à troca de vídeo: quem compara vídeos quer a mesma vista.
+  const [tab, setTab] = useState<DashboardTab>('analise');
+  const selectedVideo = videos.find(v => v.youtube_id === selectedId) ?? null;
 
   async function handleLogout() {
     await logout();
@@ -252,18 +260,18 @@ function AppLayout() {
                   <ChevronRight size={12} />
                   <span>Análise de Vídeo</span>
                 </nav>
-                <h2 className="text-3xl font-extrabold tracking-tight text-[#dae2fd] flex items-center gap-3 flex-wrap">
-                  Análise:{' '}
-                  <span className="text-primary font-mono">
-                    {selectedId ?? '—'}
-                  </span>
+                <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[#dae2fd] flex items-start gap-3 flex-wrap">
+                  <span className="line-clamp-2">{selectedVideo?.titulo ?? selectedId ?? '—'}</span>
                   {isProcessing && (
-                    <span className="flex items-center gap-1.5 text-[10px] font-bold text-tertiary px-2 py-0.5 rounded bg-tertiary/10 tracking-wider self-end mb-1">
+                    <span className="flex items-center gap-1.5 text-[10px] font-bold text-tertiary px-2 py-0.5 rounded bg-tertiary/10 tracking-wider mt-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-ping" />
                       AO VIVO
                     </span>
                   )}
                 </h2>
+                {selectedVideo?.titulo && selectedId && (
+                  <p className="text-xs font-mono text-primary/60 mt-1">{selectedId}</p>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 {/* Reprocessar IA */}
@@ -276,6 +284,7 @@ function AppLayout() {
                   <Cpu size={16} className={reprocessing ? 'animate-pulse text-primary' : ''} />
                   {reprocessing ? 'A reprocessar...' : 'Reprocessar IA'}
                 </button>
+
 
                 {/* Apagar vídeo — dois cliques para confirmar */}
                 <button
@@ -347,21 +356,57 @@ function AppLayout() {
             {/* Conteúdo quando há vídeo selecionado */}
             {selectedId && (
               <>
+                {/* Hero: o RAG é a interacção principal do produto, por isso a
+                    caixa de pergunta vem antes de tudo e fora das abas. */}
+                <section className="relative overflow-hidden rounded-2xl border border-primary/20 bg-surface-container p-6 md:p-8">
+                  <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+                  <div className="relative space-y-5">
+                    <div>
+                      <h3 className="text-xl font-bold text-on-surface">Pergunte à IA sobre este vídeo</h3>
+                      <p className="text-sm text-on-surface-variant mt-1">
+                        Respostas fundamentadas nos comentários, com as fontes citadas e clicáveis
+                      </p>
+                    </div>
+                    <AskInsight youtubeId={selectedId} />
+                  </div>
+                </section>
+
+                {/* KPIs: contexto para a resposta e para qualquer aba */}
                 <SummaryCards data={summary} loading={loading} />
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-                  <div className="lg:col-span-4">
-                    <IntentionsDonut data={intentions} loading={loading} />
-                  </div>
-                  {/* Célula relativa: estica para igualar a altura do Donut via items-stretch */}
-                  <div className="lg:col-span-5 relative min-h-[300px]">
-                    <div className="absolute inset-0">
-                      <ProductsTable data={products} loading={loading} />
+                <DashboardTabs active={tab} onChange={setTab} />
+
+                {/* Os painéis ficam montados e só se escondem: alternar de aba
+                    não interrompe o polling dos cards nem perde estado. */}
+                <div
+                  id={tabPanelId('analise')}
+                  role="tabpanel"
+                  aria-labelledby="aba-analise"
+                  hidden={tab !== 'analise'}
+                >
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                    <div className="lg:col-span-4">
+                      <IntentionsDonut data={intentions} loading={loading} />
+                    </div>
+                    {/* Célula relativa: estica para igualar a altura do Donut via items-stretch */}
+                    <div className="lg:col-span-5 relative min-h-[300px]">
+                      <div className="absolute inset-0">
+                        <ProductsTable data={products} loading={loading} />
+                      </div>
+                    </div>
+                    <div className="lg:col-span-3">
+                      <SentimentBars data={sentiment} loading={loading} />
                     </div>
                   </div>
-                  <div className="lg:col-span-3">
-                    <SentimentBars data={sentiment} loading={loading} />
-                  </div>
+                </div>
+
+                <div
+                  id={tabPanelId('insights')}
+                  role="tabpanel"
+                  aria-labelledby="aba-insights"
+                  hidden={tab !== 'insights'}
+                >
+                  <InsightCards youtubeId={selectedId} />
                 </div>
               </>
             )}
