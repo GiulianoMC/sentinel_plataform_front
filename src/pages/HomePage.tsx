@@ -1,128 +1,112 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Activity,
-  Calendar,
-  ChevronRight,
-  Clapperboard,
-  MessageSquare,
-  PlusSquare,
-  RefreshCw,
-  Smile,
-} from 'lucide-react';
-import { fetchOverview } from '../api/analytics';
-import type { Video, VideoOverview } from '../api/types';
-import { sentimentMeta } from '../components/SummaryCards';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Clapperboard, Layers, PlusSquare, RefreshCw } from 'lucide-react';
+import type { AskRequest } from '../api/types';
+import { useOverview } from '../hooks/useOverview';
+import { useChannelsData } from '../context/ChannelsContext';
+import { Breadcrumbs } from '../components/Breadcrumbs';
+import { ScopeStats } from '../components/ScopeStats';
+import { HomeAsk } from '../components/home/HomeAsk';
+import { RecentQuestions } from '../components/home/RecentQuestions';
+import { InsightsFeed } from '../components/home/InsightsFeed';
+import { ProcessingList } from '../components/home/ProcessingList';
+import { SentimentRanking } from '../components/home/SentimentRanking';
+import { CHANNELS_PATH, REGISTER_PATH, channelSegment, videoPath } from '../lib/routes';
 
-const thumbnail = (id: string) => `https://img.youtube.com/vi/${id}/mqdefault.jpg`;
+/** Quantos vídeos entram no feed de sínteses; cada um é uma chamada. */
+const FEED_SIZE = 3;
 
-const fmt = (n: number) => n.toLocaleString('pt-PT');
+const today = () =>
+  new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' });
 
-interface Props {
-  videos: Video[];
-  onSelectVideo: (id: string) => void;
-  onRegister: () => void;
-}
+/**
+ * Início: o estado do produto num ecrã. O RAG à frente, porque é a interacção
+ * principal, e a seguir o que a IA já sintetizou, o que está a processar e onde
+ * o sentimento está pior. A comparação entre canais vive na tela de Canais.
+ */
+export function HomePage() {
+  const navigate = useNavigate();
+  const { overview, loading, error, refetch } = useOverview(null);
+  const { channels, loading: channelsLoading } = useChannelsData();
 
-export function HomePage({ videos, onSelectVideo, onRegister }: Props) {
-  const [overview, setOverview] = useState<VideoOverview | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const videos = overview?.videos ?? [];
 
-  const load = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    fetchOverview()
-      .then(setOverview)
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, []);
+  // Âmbito da pergunta e pergunta pendente vinda do histórico.
+  const [askVideoId, setAskVideoId] = useState<string | null>(null);
+  const [pendingAsk, setPendingAsk] = useState<AskRequest | null>(null);
 
-  // Recarrega quando a lista de vídeos muda (registo/apagar)
+  // Por defeito pergunta-se sobre o vídeo com mais comentários analisados: é o
+  // que tem contexto suficiente para a resposta não sair vazia.
   useEffect(() => {
-    load();
-  }, [load, videos]);
+    if (videos.length === 0) return;
+    const stillListed = askVideoId != null && videos.some(v => v.youtube_id === askVideoId);
+    if (stillListed) return;
+    const best = [...videos].sort((a, b) => b.analyzed_comments - a.analyzed_comments)[0];
+    setAskVideoId(best.youtube_id);
+  }, [videos, askVideoId]);
 
-  const coverage = useMemo(() => {
-    if (!overview || overview.total_comments === 0) return 0;
-    return Math.round((overview.analyzed_comments / overview.total_comments) * 100);
-  }, [overview]);
+  // Vídeos mais recentes primeiro: é o que interessa num feed.
+  const recent = useMemo(
+    () => [...videos]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, FEED_SIZE),
+    [videos],
+  );
 
-  const sentiment = sentimentMeta(overview?.average_sentiment ?? null);
+  const openVideo = (youtubeId: string) => {
+    const v = videos.find(x => x.youtube_id === youtubeId);
+    navigate(videoPath(channelSegment(v?.channel_id), youtubeId));
+  };
 
-  const stats = [
-    {
-      icon: Clapperboard,
-      iconClass: 'text-primary bg-primary/10',
-      label: 'Vídeos registados',
-      value: String(overview?.total_videos ?? 0),
-      sub: null as string | null,
-      progress: null as number | null,
-      valueClass: 'text-on-surface',
-    },
-    {
-      icon: MessageSquare,
-      iconClass: 'text-secondary bg-secondary/10',
-      label: 'Comentários',
-      value: fmt(overview?.total_comments ?? 0),
-      sub: null as string | null,
-      progress: null as number | null,
-      valueClass: 'text-on-surface',
-    },
-    {
-      icon: Activity,
-      iconClass: 'text-tertiary bg-tertiary/10',
-      label: 'Comentários analisados',
-      value: fmt(overview?.analyzed_comments ?? 0),
-      sub: `${coverage}% cobertura`,
-      progress: coverage,
-      valueClass: 'text-on-surface',
-    },
-    {
-      icon: Smile,
-      iconClass: 'text-green-400 bg-green-500/10',
-      label: 'Sentimento médio geral',
-      value: overview?.average_sentiment != null ? overview.average_sentiment.toFixed(1) : '—',
-      sub: overview?.average_sentiment != null ? '/ 5' : 'sem dados',
-      progress: null as number | null,
-      valueClass: sentiment.color,
-    },
-  ];
+  function repeatQuestion(youtubeId: string, request: AskRequest) {
+    setAskVideoId(youtubeId);
+    setPendingAsk(request);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
-  const empty = !loading && !error && overview != null && overview.videos.length === 0;
+  const nothingRegistered = !loading && !error && videos.length === 0;
 
   return (
     <div className="space-y-8">
       {/* Cabeçalho */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <nav className="flex items-center gap-2 text-[10px] text-primary/50 uppercase tracking-widest mb-1">
-            <span>Início</span>
-            <ChevronRight size={12} />
-            <span>Visão Geral</span>
-          </nav>
-          <h2 className="text-3xl font-extrabold tracking-tight text-[#dae2fd]">
-            Visão Geral
-          </h2>
+        <div className="min-w-0">
+          <Breadcrumbs items={[{ label: 'Início' }]} />
+          <h2 className="text-3xl font-extrabold tracking-tight text-on-surface">Visão Geral</h2>
+          <p className="text-xs text-on-surface-variant mt-1 first-letter:uppercase">
+            {today()}
+            {!channelsLoading && channels.length > 0 && (
+              <>
+                {' · '}
+                {channels.length} {channels.length === 1 ? 'canal' : 'canais'}
+              </>
+            )}
+          </p>
         </div>
-        <button
-          onClick={load}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-tr from-primary to-primary-container text-on-primary-container text-xs font-bold shadow-lg shadow-primary/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed w-fit"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-          Atualizar
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => navigate(CHANNELS_PATH)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-container-high text-xs font-semibold text-on-surface-variant hover:text-on-surface transition-colors border border-outline-variant/10"
+          >
+            <Layers size={16} />
+            Ver canais
+          </button>
+          <button
+            onClick={refetch}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-tr from-primary to-primary-container text-on-primary-container text-xs font-bold shadow-lg shadow-primary/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            Atualizar
+          </button>
+        </div>
       </div>
 
-      {/* Erros */}
       {error && (
-        <div className="glass-card rounded-xl p-4 border border-error/20 text-error text-sm">
-          {error}
-        </div>
+        <div className="glass-card rounded-xl p-4 border border-error/20 text-error text-sm">{error}</div>
       )}
 
-      {/* Sem vídeos */}
-      {empty && (
+      {nothingRegistered ? (
         <div className="glass-card rounded-2xl p-10 flex flex-col items-center gap-4 text-center">
           <div className="p-3 rounded-2xl bg-primary/10">
             <Clapperboard size={28} className="text-primary" />
@@ -130,145 +114,50 @@ export function HomePage({ videos, onSelectVideo, onRegister }: Props) {
           <div>
             <p className="text-sm font-bold text-on-surface">Nenhum vídeo registado ainda</p>
             <p className="text-xs text-on-surface-variant mt-1">
-              Registe um vídeo do YouTube para começar a analisar os comentários.
+              Registe um vídeo do YouTube para a Sentinela começar a ler os comentários.
             </p>
           </div>
           <button
-            onClick={onRegister}
+            onClick={() => navigate(REGISTER_PATH)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
           >
             <PlusSquare size={16} />
             Registar primeiro vídeo
           </button>
         </div>
-      )}
-
-      {/* Dados gerais agregados */}
-      {!empty && (
+      ) : (
         <>
-          <section>
-            <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">
-              Dados Gerais
-            </h3>
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-              {stats.map(s => (
-                <div key={s.label} className="glass-card rounded-2xl p-4 flex flex-col gap-3">
-                  <div className={`p-2 rounded-lg w-fit ${s.iconClass}`}>
-                    <s.icon size={16} />
-                  </div>
-                  {loading ? (
-                    <div className="h-7 w-16 shimmer rounded" />
-                  ) : (
-                    <>
-                      <div>
-                        <p className={`text-2xl font-black leading-tight ${s.valueClass}`}>
-                          {s.value}
-                        </p>
-                        <p className="text-[11px] text-on-surface-variant mt-0.5">{s.label}</p>
-                      </div>
-                      {s.sub && (
-                        <p className={`text-[10px] font-bold tracking-wide ${s.progress != null ? 'text-tertiary' : 'text-on-surface-variant/70'}`}>
-                          {s.sub.toUpperCase()}
-                        </p>
-                      )}
-                      {s.progress != null && (
-                        <div className="h-1 w-full bg-surface-container-highest rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-tertiary transition-all"
-                            style={{ width: `${s.progress}%` }}
-                          />
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
+          {/* Dados gerais: aqui somar tudo faz sentido, é o estado do produto */}
+          <ScopeStats
+            data={overview}
+            loading={loading}
+            videosLabel="Vídeos registados"
+            sentimentLabel="Sentimento médio geral"
+          />
 
-          {/* Grelha de vídeos */}
-          <section>
-            <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">
-              Vídeos
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {loading
-                ? Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="rounded-2xl overflow-hidden bg-surface-container-high">
-                      <div className="aspect-video shimmer" />
-                      <div className="p-4 space-y-2">
-                        <div className="h-3 w-3/4 shimmer rounded" />
-                        <div className="h-2.5 w-1/2 shimmer rounded" />
-                      </div>
-                    </div>
-                  ))
-                : (overview?.videos ?? []).map(v => {
-                    const isLive = v.analyzed_comments < v.total_comments;
-                    const pct =
-                      v.total_comments > 0
-                        ? Math.round((v.analyzed_comments / v.total_comments) * 100)
-                        : 0;
-                    const m = v.average_sentiment != null ? sentimentMeta(v.average_sentiment) : null;
-                    return (
-                      <button
-                        key={v.youtube_id}
-                        type="button"
-                        onClick={() => onSelectVideo(v.youtube_id)}
-                        className="group text-left glass-card rounded-2xl overflow-hidden hover:border-primary/30 hover:-translate-y-1 transition-all duration-200 flex flex-col cursor-pointer"
-                      >
-                        <div className="relative aspect-video bg-surface-dim overflow-hidden">
-                          <img
-                            src={thumbnail(v.youtube_id)}
-                            alt=""
-                            loading="lazy"
-                            className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-300"
-                          />
-                          {isLive && (
-                            <span className="absolute top-2 left-2 flex items-center gap-1.5 text-[9px] font-bold text-tertiary px-2 py-0.5 rounded bg-black/60 tracking-wider">
-                              <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-ping" />
-                              AO VIVO
-                            </span>
-                          )}
-                          <span className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                          <span className="absolute bottom-2 right-2 text-[10px] font-bold text-white/90 opacity-0 group-hover:opacity-100 transition-opacity">
-                            Ver análise →
-                          </span>
-                        </div>
-                        <div className="p-4 flex flex-col flex-1">
-                          <p className="text-sm font-bold text-on-surface leading-snug line-clamp-2">
-                            {v.titulo ?? v.youtube_id}
-                          </p>
-                          <div className="mt-1.5 flex items-center gap-2 text-[10px] text-on-surface-variant">
-                            <span className="font-mono truncate">{v.youtube_id}</span>
-                            <span className="text-outline">•</span>
-                            <span className="flex items-center gap-1 shrink-0">
-                              <Calendar size={10} />
-                              {new Date(v.created_at).toLocaleDateString('pt-PT')}
-                            </span>
-                          </div>
-                          <div className="mt-4 pt-3 border-t border-outline-variant/10 flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-3 text-[11px] text-on-surface-variant">
-                              <span className="flex items-center gap-1">
-                                <MessageSquare size={12} />
-                                {fmt(v.total_comments)}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Activity size={12} />
-                                {pct}%
-                              </span>
-                            </div>
-                            {m && (
-                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${m.bg} ${m.color}`}>
-                                {m.label.toUpperCase()}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
+          {/* RAG à frente, com o histórico e o processamento em coluna ao lado */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+            <div className="xl:col-span-2">
+              <HomeAsk
+                videos={videos}
+                loading={loading}
+                selectedId={askVideoId}
+                onSelect={id => { setAskVideoId(id); setPendingAsk(null); }}
+                pendingRequest={pendingAsk}
+              />
             </div>
-          </section>
+            <div className="space-y-6">
+              <RecentQuestions onRepeat={repeatQuestion} />
+              <ProcessingList videos={videos} loading={loading} onOpenVideo={openVideo} />
+            </div>
+          </div>
+
+          <InsightsFeed videos={recent} onOpenVideo={openVideo} />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <SentimentRanking videos={videos} loading={loading} mode="atencao" onOpenVideo={openVideo} />
+            <SentimentRanking videos={videos} loading={loading} mode="melhores" onOpenVideo={openVideo} />
+          </div>
         </>
       )}
     </div>

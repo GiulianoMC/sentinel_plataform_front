@@ -26,7 +26,8 @@ export function VideoSelector({ videos, selectedId, onChange, loading }: Props) 
     if (!q) return videos;
     return videos.filter(v =>
       (v.titulo ?? v.youtube_id).toLowerCase().includes(q) ||
-      v.youtube_id.toLowerCase().includes(q)
+      v.youtube_id.toLowerCase().includes(q) ||
+      (v.channel_title ?? '').toLowerCase().includes(q)
     );
   }, [videos, query]);
 
@@ -94,7 +95,7 @@ export function VideoSelector({ videos, selectedId, onChange, loading }: Props) 
                 {selected.titulo ?? selected.youtube_id}
               </p>
               <p className="text-[10px] text-on-surface-variant truncate">
-                {selected.youtube_id}
+                {selected.channel_title ?? selected.youtube_id}
               </p>
             </div>
           </>
@@ -118,7 +119,7 @@ export function VideoSelector({ videos, selectedId, onChange, loading }: Props) 
                 autoFocus
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Pesquisar vídeo…"
+                placeholder="Pesquisar vídeo ou canal…"
                 className="w-full bg-surface pl-8 pr-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/70 rounded-lg border border-outline-variant/20 focus:outline-none focus:ring-1 focus:ring-primary/60"
               />
             </div>
@@ -164,7 +165,7 @@ export function VideoSelector({ videos, selectedId, onChange, loading }: Props) 
                         {v.titulo ?? v.youtube_id}
                       </p>
                       <p className="text-[11px] text-on-surface-variant truncate">
-                        {v.youtube_id}
+                        {v.channel_title ? `${v.channel_title} · ` : ''}{v.youtube_id}
                       </p>
                     </div>
                     <Check

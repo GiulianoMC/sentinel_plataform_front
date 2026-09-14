@@ -29,7 +29,8 @@ const INTENT_LABELS: Record<string, string> = {
 };
 
 interface Props {
-  data: IntentionsResponse | null;
+  // Só as métricas: aceita a resposta por vídeo ou por canal.
+  data: Pick<IntentionsResponse, 'intentions'> | null;
   loading: boolean;
 }
 
@@ -88,7 +89,12 @@ export function IntentionsDonut({ data, loading }: Props) {
         </div>
       </div>
 
-      <div className="mt-4 space-y-2 max-h-52 overflow-y-auto pr-1">
+      {/* Mesma barra fina da tabela de produtos, para os dois cards do painel
+          rolarem igual em vez de um deles herdar a do navegador. */}
+      <div
+        className="mt-4 space-y-2 max-h-52 overflow-y-auto pr-1"
+        style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(189,194,255,0.2) transparent' }}
+      >
         {loading
           ? [1, 2, 3].map(i => (
               <div key={i} className="flex items-center justify-between">

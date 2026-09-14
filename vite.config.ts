@@ -20,5 +20,11 @@ export default defineConfig(({mode}) => {
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
     },
+    // Mesma origem do dev (localhost:3000): a sessão guardada no localStorage é
+    // por origem, por isso o preview na porta 4173 pedia login outra vez.
+    preview: {
+      port: 3000,
+      host: '0.0.0.0',
+    },
   };
 });

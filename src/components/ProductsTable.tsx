@@ -14,7 +14,8 @@ function sentimentBarColor(avg: number): string {
 }
 
 interface Props {
-  data: ProductsResponse | null;
+  // Só as métricas: aceita a resposta por vídeo ou por canal.
+  data: Pick<ProductsResponse, 'products'> | null;
   loading: boolean;
 }
 

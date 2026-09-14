@@ -2,8 +2,19 @@ export interface Video {
   id: number;
   youtube_id: string;
   titulo: string | null;
+  /** null = registado antes do filtro por canal; corrigível via backfillVideoChannels() */
+  channel_id: string | null;
+  channel_title: string | null;
+  published_at: string | null;
   created_at: string;
   ultimo_comentario_verificado_em: string | null;
+}
+
+/** GET /video/channels — lista leve para dropdowns. */
+export interface Channel {
+  channel_id: string;
+  channel_title: string | null;
+  video_count: number;
 }
 
 export interface VideoSummary {
@@ -15,15 +26,59 @@ export interface VideoSummary {
 
 export interface VideoOverviewItem extends VideoSummary {
   titulo: string | null;
+  channel_id: string | null;
+  channel_title: string | null;
   created_at: string;
 }
 
+/** GET /analytics/overview[?channel_id=] — com filtro, tudo é só daquele canal. */
 export interface VideoOverview {
+  channel_id: string | null;       // filtro aplicado; null = todos os vídeos
   total_videos: number;
   total_comments: number;
   analyzed_comments: number;
   average_sentiment: number | null;
   videos: VideoOverviewItem[];
+}
+
+// ---------------------------------------------------------------------------
+// Analytics por canal
+// ---------------------------------------------------------------------------
+
+export interface ChannelOverviewItem {
+  channel_id: string;
+  channel_title: string | null;
+  total_videos: number;
+  total_comments: number;
+  analyzed_comments: number;
+  average_sentiment: number | null;
+}
+
+/** GET /analytics/channels */
+export interface ChannelsOverview {
+  total_channels: number;
+  /** Vídeos com channel_id NULL — o front oferece o backfill quando > 0. */
+  videos_without_channel: number;
+  channels: ChannelOverviewItem[];
+}
+
+/** GET /analytics/channels/{id}/summary */
+export interface ChannelSummary extends ChannelOverviewItem {}
+
+/** As métricas por canal têm o mesmo corpo das por vídeo, só muda o id. */
+export interface ChannelIntentionsResponse {
+  channel_id: string;
+  intentions: IntentItem[];
+}
+
+export interface ChannelProductsResponse {
+  channel_id: string;
+  products: ProductItem[];
+}
+
+export interface ChannelSentimentResponse {
+  channel_id: string;
+  distribution: Record<string, number>;
 }
 
 export interface IntentItem {

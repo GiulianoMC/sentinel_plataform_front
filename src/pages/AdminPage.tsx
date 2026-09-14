@@ -6,7 +6,7 @@ export function AdminPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-surface text-on-surface pt-24 pb-12 px-6 lg:px-10 max-w-7xl mx-auto space-y-8">
+    <div className="space-y-8">
       <div className="flex items-center justify-between gap-4">
         <div>
           <nav className="flex items-center gap-2 text-[10px] text-primary/50 uppercase tracking-widest mb-1">

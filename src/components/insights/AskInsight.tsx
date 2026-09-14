@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Send, Info, Loader2, Sparkles, RotateCcw, FilterX } from 'lucide-react';
 import { useInsightsChat } from '../../hooks/useInsightsChat';
+import { recordAsk } from '../../hooks/useAskHistory';
 import { useSuggestedQuestions } from '../../hooks/useSuggestedQuestions';
 import type { AskRequest, SuggestedQuestion } from '../../api/types';
 import { SuggestedQuestions } from './SuggestedQuestions';
@@ -13,13 +14,17 @@ const SLOW_HINT_MS = 10_000;
 
 interface Props {
   youtubeId: string;
+  /** Título para o histórico de perguntas; o id sozinho não diz nada a ninguém. */
+  videoTitle?: string | null;
+  /** Pergunta a enviar logo ao montar, vinda do histórico ou de outra tela. */
+  initialQuestion?: AskRequest | null;
 }
 
 /**
  * Hero do painel: a pergunta à IA é a interacção principal do produto, por
  * isso a caixa é grande, fica sempre visível e a resposta abre no mesmo lugar.
  */
-export function AskInsight({ youtubeId }: Props) {
+export function AskInsight({ youtubeId, videoTitle = null, initialQuestion = null }: Props) {
   const [input, setInput] = useState('');
   const [slow, setSlow] = useState(false);
   const lastRequest = useRef<AskRequest | null>(null);
@@ -43,6 +48,29 @@ export function AskInsight({ youtubeId }: Props) {
     resetRefs();
     ask(req);
   }, [ask, resetRefs]);
+
+  // Uma pergunta pedida de fora (histórico da Home) entra como se tivesse sido
+  // escrita aqui. O id do vídeo entra na chave para reenviar ao trocar de vídeo.
+  useEffect(() => {
+    if (!initialQuestion) return;
+    setInput(initialQuestion.question);
+    send(initialQuestion);
+  }, [initialQuestion, send]);
+
+  // Guarda no histórico local só o que teve resposta, para a Home poder retomar.
+  useEffect(() => {
+    if (asking || !result || !lastRequest.current) return;
+    recordAsk({
+      question: lastRequest.current.question,
+      youtubeId,
+      videoTitle,
+      strategy: result.strategy_used,
+      filters: lastRequest.current.filters ?? null,
+      askedAt: new Date().toISOString(),
+      commentsInContext: result.comments_in_context,
+      answered: result.llm_called,
+    });
+  }, [asking, result, youtubeId, videoTitle]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

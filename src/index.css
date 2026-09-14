@@ -75,3 +75,49 @@
 body {
   font-family: 'Inter', sans-serif;
 }
+/* ---- Autenticação: animações e fundo ---- */
+@layer utilities {
+  .auth-grid {
+    background-image:
+      linear-gradient(rgba(189, 194, 255, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(189, 194, 255, 0.06) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  }
+  .animate-rise { animation: rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-fade-in { animation: fade-in 0.25s ease-out both; }
+  .animate-pop-in { animation: pop-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-shake { animation: shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
+  .animate-float-slow { animation: float 18s ease-in-out infinite alternate; }
+  .animate-float-slower { animation: float 26s ease-in-out infinite alternate-reverse; }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.6) rotate(-20deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
+@keyframes float {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(60px, 40px, 0) scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise, .animate-fade-in, .animate-pop-in, .animate-shake,
+  .animate-float-slow, .animate-float-slower {
+    animation: none;
+  }
+}

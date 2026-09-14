@@ -36,7 +36,7 @@ export function RegisterVideoPage({ onRegistered }: Props) {
   }
 
   return (
-    <div className="pt-24 pb-12 px-6 lg:px-10 max-w-2xl mx-auto space-y-8">
+    <div className="max-w-2xl mx-auto space-y-8">
       {/* Page Title */}
       <div>
         <nav className="flex items-center gap-2 text-[10px] text-primary/50 uppercase tracking-widest mb-1">
@@ -126,6 +126,15 @@ export function RegisterVideoPage({ onRegistered }: Props) {
               {success.titulo && (
                 <p className="text-xs text-on-surface-variant mt-0.5">
                   Título: <span className="text-on-surface">{success.titulo}</span>
+                </p>
+              )}
+              {success.channel_title ? (
+                <p className="text-xs text-on-surface-variant mt-0.5">
+                  Canal: <span className="text-on-surface">{success.channel_title}</span>
+                </p>
+              ) : (
+                <p className="text-xs text-on-surface-variant/60 mt-0.5">
+                  Canal não identificado (YouTube API indisponível) — use "Identificar canais" na Visão Geral.
                 </p>
               )}
               <p className="text-xs text-on-surface-variant/60 mt-2">

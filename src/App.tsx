@@ -1,115 +1,148 @@
-import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import {
-  Home,
-  LayoutDashboard,
-  PlusSquare,
-  ChevronRight,
-  RefreshCw,
-  Cpu,
-  Trash2,
-  LogOut,
-  Users,
-} from 'lucide-react';
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+  useNavigate,
+  useLocation,
+} from 'react-router-dom';
+import { Home, Layers, Tv, Video, PlusSquare, LogOut, Users } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 import { AuthProvider } from './context/AuthContext';
+import { ChannelsProvider, useChannelsData } from './context/ChannelsContext';
 import { useAuth } from './hooks/useAuth';
-import { useVideos } from './hooks/useVideos';
-import { useAnalytics } from './hooks/useAnalytics';
-import { reprocessAI } from './api/analytics';
-import { deleteVideo } from './api/videos';
-import { VideoSelector } from './components/VideoSelector';
-import { SummaryCards } from './components/SummaryCards';
-import { IntentionsDonut } from './components/IntentionsDonut';
-import { ProductsTable } from './components/ProductsTable';
-import { SentimentBars } from './components/SentimentBars';
-import { InsightCards } from './components/insights/InsightCards';
-import { AskInsight } from './components/insights/AskInsight';
-import { DashboardTabs, tabPanelId } from './components/DashboardTabs';
-import type { DashboardTab } from './components/DashboardTabs';
 import { RegisterVideoPage } from './pages/RegisterVideoPage';
 import { HomePage } from './pages/HomePage';
+import { ChannelsPage } from './pages/ChannelsPage';
+import { ChannelPage } from './pages/ChannelPage';
+import { VideoPage } from './pages/VideoPage';
+import { PickerPage } from './pages/PickerPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { AdminPage } from './pages/AdminPage';
 import { PrivateRoute } from './components/PrivateRoute';
 import { AdminRoute } from './components/AdminRoute';
-import type { Video } from './api/types';
+import {
+  CHANNELS_PATH,
+  HOME_PATH,
+  REGISTER_PATH,
+  VIDEO_PICKER_PATH,
+  channelPath,
+  channelSegment,
+  videoPath,
+} from './lib/routes';
 
-type Page = 'home' | 'dashboard' | 'register';
+/** Extrai o canal e o vídeo do caminho, para memorizar onde o utilizador estava. */
+function parseScope(pathname: string): { channelId: string | null; youtubeId: string | null } {
+  const m = pathname.match(/^\/canal\/([^/]+)(?:\/video\/([^/]+))?\/?$/);
+  if (!m) return { channelId: null, youtubeId: null };
+  return {
+    channelId: decodeURIComponent(m[1]),
+    youtubeId: m[2] ? decodeURIComponent(m[2]) : null,
+  };
+}
 
-function AppLayout() {
-  const [page, setPage] = useState<Page>('home');
-  const { videos, loading: videosLoading, error: videosError, refetchVideos } = useVideos();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+interface NavItem {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  to: string;
+  isActive: (pathname: string) => boolean;
+}
+
+/**
+ * Casca da aplicação: barra lateral, barra de topo e o nível atual da
+ * hierarquia canais → canal → vídeo. Cada nível é uma rota própria, por isso
+ * voltar atrás no browser sobe um nível em vez de sair da aplicação.
+ */
+function AppShell() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Último canal e vídeo visitados: sem isto, os itens Canal e Vídeo da barra
+  // lateral não tinham para onde apontar depois de se navegar para longe.
+  const [lastChannelId, setLastChannelId] = useState<string | null>(null);
+  const [lastVideo, setLastVideo] = useState<{ channelId: string; youtubeId: string } | null>(null);
+
   useEffect(() => {
-    if (!selectedId && videos.length > 0) {
-      setSelectedId(videos[0].youtube_id);
-    }
-  }, [videos, selectedId]);
+    const { channelId, youtubeId } = parseScope(location.pathname);
+    if (!channelId) return;
+    setLastChannelId(channelId);
+    if (youtubeId) setLastVideo({ channelId, youtubeId });
+  }, [location.pathname]);
 
-  const { summary, intentions, products, sentiment, loading, error, refetch, isProcessing } = useAnalytics(selectedId);
+  // Compatibilidade com os links da versão em que o canal era um filtro global.
+  useEffect(() => {
+    const legacy = new URLSearchParams(location.search).get('channel');
+    if (legacy) navigate(channelPath(legacy), { replace: true });
+  }, [location.search, navigate]);
 
-  const [reprocessing, setReprocessing] = useState(false);
-  const [reprocessMsg, setReprocessMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const isAdmin = user?.role === 'admin';
 
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const items: NavItem[] = [
+    {
+      key: 'inicio',
+      label: 'Início',
+      icon: Home,
+      to: HOME_PATH,
+      isActive: p => p === HOME_PATH,
+    },
+    {
+      key: 'canais',
+      label: 'Canais',
+      icon: Layers,
+      to: CHANNELS_PATH,
+      isActive: p => p === CHANNELS_PATH,
+    },
+    {
+      key: 'canal',
+      label: 'Canal',
+      icon: Tv,
+      to: lastChannelId ? channelPath(lastChannelId) : CHANNELS_PATH,
+      isActive: p => p.startsWith('/canal/') && !p.includes('/video/'),
+    },
+    {
+      key: 'video',
+      label: 'Vídeo',
+      icon: Video,
+      to: lastVideo ? videoPath(lastVideo.channelId, lastVideo.youtubeId) : VIDEO_PICKER_PATH,
+      isActive: p => p === VIDEO_PICKER_PATH || p.includes('/video/'),
+    },
+    {
+      key: 'registar',
+      label: 'Registar Vídeo',
+      icon: PlusSquare,
+      to: REGISTER_PATH,
+      isActive: p => p === REGISTER_PATH,
+    },
+  ];
 
-  // A aba sobrevive à troca de vídeo: quem compara vídeos quer a mesma vista.
-  const [tab, setTab] = useState<DashboardTab>('analise');
-  const selectedVideo = videos.find(v => v.youtube_id === selectedId) ?? null;
+  if (isAdmin) {
+    items.push({
+      key: 'admin',
+      label: 'Administração',
+      icon: Users,
+      to: '/admin',
+      isActive: p => p.startsWith('/admin'),
+    });
+  }
+
+  const active = items.find(i => i.isActive(location.pathname)) ?? items[0];
 
   async function handleLogout() {
     await logout();
     navigate('/login');
   }
 
-  async function handleDelete() {
-    if (!selectedId) return;
-    if (!confirmDelete) { setConfirmDelete(true); return; }
-    setDeleting(true);
-    setConfirmDelete(false);
-    try {
-      await deleteVideo(selectedId);
-      const remaining = videos.filter(v => v.youtube_id !== selectedId);
-      setSelectedId(remaining.length > 0 ? remaining[0].youtube_id : null);
-      refetchVideos();
-    } catch (e) {
-      setReprocessMsg({ type: 'err', text: (e as Error).message });
-    } finally {
-      setDeleting(false);
-    }
-  }
-
-  async function handleReprocess() {
-    if (!selectedId) return;
-    setReprocessing(true);
-    setReprocessMsg(null);
-    try {
-      const result = await reprocessAI(selectedId);
-      const n = (result as { enqueued?: number }).enqueued ?? 0;
-      setReprocessMsg({ type: 'ok', text: `${n} comentário(s) enviados para reprocessamento.` });
-    } catch (e) {
-      setReprocessMsg({ type: 'err', text: (e as Error).message });
-    } finally {
-      setReprocessing(false);
-    }
-  }
-
-  function handleVideoRegistered(video: Video) {
-    refetchVideos();
-    setSelectedId(video.youtube_id);
-    setPage('home');
-  }
-
-  const isAdmin = user?.role === 'admin';
-
   return (
+    // O provider de canais vive aqui, não na raiz: /analytics/channels exige
+    // sessão, e a casca só é renderizada depois de PrivateRoute confirmar o
+    // utilizador e o token já estar no cliente da API.
+    <ChannelsProvider>
     <div className="min-h-screen bg-surface text-on-surface font-body">
       {/* SideNavBar */}
       <aside className="h-screen w-64 fixed left-0 top-0 bg-[#131b2e] flex-col py-8 px-4 gap-y-4 z-50 hidden md:flex">
@@ -118,53 +151,24 @@ function AppLayout() {
           <p className="text-[10px] font-medium uppercase tracking-wider text-[#dae2fd]/50">Terminal de Inteligência</p>
         </div>
         <nav className="flex-1 space-y-1">
-          <button
-            onClick={() => { setPage('home'); navigate('/'); }}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ease-in-out ${
-              page === 'home' && location.pathname === '/'
-                ? 'bg-gradient-to-r from-[#bdc2ff]/10 to-transparent text-[#bdc2ff] border-r-2 border-[#bdc2ff]'
-                : 'text-[#dae2fd]/50 hover:text-[#dae2fd] hover:bg-[#222a3d]'
-            }`}
-          >
-            <Home size={20} />
-            <span className="text-sm font-medium uppercase tracking-wider">Início</span>
-          </button>
-          <button
-            onClick={() => { setPage('dashboard'); navigate('/'); }}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ease-in-out ${
-              page === 'dashboard' && location.pathname === '/'
-                ? 'bg-gradient-to-r from-[#bdc2ff]/10 to-transparent text-[#bdc2ff] border-r-2 border-[#bdc2ff]'
-                : 'text-[#dae2fd]/50 hover:text-[#dae2fd] hover:bg-[#222a3d]'
-            }`}
-          >
-            <LayoutDashboard size={20} />
-            <span className="text-sm font-medium uppercase tracking-wider">Painel</span>
-          </button>
-          <button
-            onClick={() => { setPage('register'); navigate('/'); }}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ease-in-out ${
-              page === 'register' && location.pathname === '/'
-                ? 'bg-gradient-to-r from-[#bdc2ff]/10 to-transparent text-[#bdc2ff] border-r-2 border-[#bdc2ff]'
-                : 'text-[#dae2fd]/50 hover:text-[#dae2fd] hover:bg-[#222a3d]'
-            }`}
-          >
-            <PlusSquare size={20} />
-            <span className="text-sm font-medium uppercase tracking-wider">Registar Vídeo</span>
-          </button>
-          {isAdmin && (
-            <button
-              onClick={() => navigate('/admin')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ease-in-out ${
-                location.pathname === '/admin'
-                  ? 'bg-gradient-to-r from-[#bdc2ff]/10 to-transparent text-[#bdc2ff] border-r-2 border-[#bdc2ff]'
-                  : 'text-[#dae2fd]/50 hover:text-[#dae2fd] hover:bg-[#222a3d]'
-              }`}
-            >
-              <Users size={20} />
-              <span className="text-sm font-medium uppercase tracking-wider">Administração</span>
-            </button>
-          )}
-          
+          {items.map(({ key, label, icon: Icon, to, isActive }) => {
+            const selected = isActive(location.pathname);
+            return (
+              <button
+                key={key}
+                onClick={() => navigate(to)}
+                aria-current={selected ? 'page' : undefined}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ease-in-out ${
+                  selected
+                    ? 'bg-gradient-to-r from-[#bdc2ff]/10 to-transparent text-[#bdc2ff] border-r-2 border-[#bdc2ff]'
+                    : 'text-[#dae2fd]/50 hover:text-[#dae2fd] hover:bg-[#222a3d]'
+                }`}
+              >
+                <Icon size={20} />
+                <span className="text-sm font-medium uppercase tracking-wider">{label}</span>
+              </button>
+            );
+          })}
         </nav>
         <div className="pt-4 border-t border-outline-variant/10">
           <button
@@ -182,54 +186,22 @@ function AppLayout() {
         {/* TopNavBar */}
         <header className="fixed top-0 right-0 left-0 md:left-64 z-40 bg-[#0b1326]/60 backdrop-blur-xl flex justify-between items-center px-6 h-16 gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            {page === 'dashboard' ? (
-              <VideoSelector
-                videos={videos}
-                selectedId={selectedId}
-                onChange={setSelectedId}
-                loading={videosLoading}
-              />
-            ) : page === 'home' ? (
-              <span className="text-sm font-semibold text-on-surface-variant">Visão Geral</span>
-            ) : (
-              <span className="text-sm font-semibold text-on-surface-variant">Registar Vídeo</span>
-            )}
+            <span className="text-sm font-semibold text-on-surface-variant hidden md:block">{active.label}</span>
             {/* Navegação mobile */}
-            <nav className="flex items-center gap-1 md:hidden ml-2">
-              <button
-                onClick={() => { setPage('home'); navigate('/'); }}
-                className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                  page === 'home' ? 'text-primary bg-primary/10' : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                Início
-              </button>
-              <button
-                onClick={() => { setPage('dashboard'); navigate('/'); }}
-                className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                  page === 'dashboard' ? 'text-primary bg-primary/10' : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                Painel
-              </button>
-              <button
-                onClick={() => { setPage('register'); navigate('/'); }}
-                className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                  page === 'register' ? 'text-primary bg-primary/10' : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                Registar
-              </button>
-              {isAdmin && (
+            <nav className="flex items-center gap-1 md:hidden">
+              {items.map(({ key, label, to, isActive }) => (
                 <button
-                  onClick={() => navigate('/admin')}
+                  key={key}
+                  onClick={() => navigate(to)}
                   className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                    location.pathname === '/admin' ? 'text-primary bg-primary/10' : 'text-on-surface-variant hover:text-on-surface'
+                    isActive(location.pathname)
+                      ? 'text-primary bg-primary/10'
+                      : 'text-on-surface-variant hover:text-on-surface'
                   }`}
                 >
-                  Admin
+                  {label === 'Registar Vídeo' ? 'Registar' : label === 'Administração' ? 'Admin' : label}
                 </button>
-              )}
+              ))}
             </nav>
           </div>
           <div className="flex items-center gap-3 pl-4 border-l border-outline-variant/20 flex-shrink-0">
@@ -247,185 +219,26 @@ function AppLayout() {
           </div>
         </header>
 
-        {page === 'register' ? (
-          <RegisterVideoPage onRegistered={handleVideoRegistered} />
-        ) : page === 'dashboard' ? (
-          <div className="pt-24 pb-12 px-6 lg:px-10 max-w-7xl mx-auto space-y-8">
-
-            {/* Page Title */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-              <div>
-                <nav className="flex items-center gap-2 text-[10px] text-primary/50 uppercase tracking-widest mb-1">
-                  <span>Painel</span>
-                  <ChevronRight size={12} />
-                  <span>Análise de Vídeo</span>
-                </nav>
-                <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[#dae2fd] flex items-start gap-3 flex-wrap">
-                  <span className="line-clamp-2">{selectedVideo?.titulo ?? selectedId ?? '—'}</span>
-                  {isProcessing && (
-                    <span className="flex items-center gap-1.5 text-[10px] font-bold text-tertiary px-2 py-0.5 rounded bg-tertiary/10 tracking-wider mt-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-ping" />
-                      AO VIVO
-                    </span>
-                  )}
-                </h2>
-                {selectedVideo?.titulo && selectedId && (
-                  <p className="text-xs font-mono text-primary/60 mt-1">{selectedId}</p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {/* Reprocessar IA */}
-                <button
-                  onClick={handleReprocess}
-                  disabled={reprocessing || !selectedId}
-                  title="Reprocessar comentários com Erro_IA"
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-container-high text-xs font-semibold hover:bg-surface-container-highest transition-colors border border-outline-variant/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Cpu size={16} className={reprocessing ? 'animate-pulse text-primary' : ''} />
-                  {reprocessing ? 'A reprocessar...' : 'Reprocessar IA'}
-                </button>
-
-
-                {/* Apagar vídeo — dois cliques para confirmar */}
-                <button
-                  onClick={handleDelete}
-                  onBlur={() => setConfirmDelete(false)}
-                  disabled={deleting || !selectedId}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                    confirmDelete
-                      ? 'bg-error/20 border-error/40 text-error animate-pulse'
-                      : 'bg-surface-container-high border-outline-variant/10 text-on-surface-variant hover:border-error/30 hover:text-error'
-                  }`}
-                >
-                  <Trash2 size={16} />
-                  {deleting ? 'A apagar...' : confirmDelete ? 'Confirmar?' : 'Apagar'}
-                </button>
-
-                {/* Atualizar dados */}
-                <button
-                  onClick={refetch}
-                  disabled={loading || !selectedId}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-tr from-primary to-primary-container text-on-primary-container text-xs font-bold shadow-lg shadow-primary/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                  Atualizar
-                </button>
-              </div>
-            </div>
-
-            {/* Erros de carregamento */}
-            {(error || videosError) && (
-              <div className="glass-card rounded-xl p-4 border border-error/20 text-error text-sm">
-                {error ?? videosError}
-              </div>
-            )}
-
-            {/* Feedback do reprocessamento */}
-            {reprocessMsg && (
-              <div
-                className={`glass-card rounded-xl p-4 border text-sm flex items-center justify-between gap-4 ${
-                  reprocessMsg.type === 'ok'
-                    ? 'border-green-400/20 text-green-400'
-                    : 'border-error/20 text-error'
-                }`}
-              >
-                <span>{reprocessMsg.text}</span>
-                <button
-                  onClick={() => setReprocessMsg(null)}
-                  className="text-xs opacity-60 hover:opacity-100 transition-opacity flex-shrink-0"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-
-            {/* Sem vídeos */}
-            {!videosLoading && videos.length === 0 && !videosError && (
-              <div className="glass-card rounded-2xl p-10 flex flex-col items-center gap-4 text-center">
-                <p className="text-on-surface-variant text-sm">Nenhum vídeo registado ainda.</p>
-                <button
-                  onClick={() => setPage('register')}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
-                >
-                  <PlusSquare size={16} />
-                  Registar primeiro vídeo
-                </button>
-              </div>
-            )}
-
-            {/* Conteúdo quando há vídeo selecionado */}
-            {selectedId && (
-              <>
-                {/* Hero: o RAG é a interacção principal do produto, por isso a
-                    caixa de pergunta vem antes de tudo e fora das abas. */}
-                <section className="relative overflow-hidden rounded-2xl border border-primary/20 bg-surface-container p-6 md:p-8">
-                  <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-                  <div className="relative space-y-5">
-                    <div>
-                      <h3 className="text-xl font-bold text-on-surface">Pergunte à IA sobre este vídeo</h3>
-                      <p className="text-sm text-on-surface-variant mt-1">
-                        Respostas fundamentadas nos comentários, com as fontes citadas e clicáveis
-                      </p>
-                    </div>
-                    <AskInsight youtubeId={selectedId} />
-                  </div>
-                </section>
-
-                {/* KPIs: contexto para a resposta e para qualquer aba */}
-                <SummaryCards data={summary} loading={loading} />
-
-                <DashboardTabs active={tab} onChange={setTab} />
-
-                {/* Os painéis ficam montados e só se escondem: alternar de aba
-                    não interrompe o polling dos cards nem perde estado. */}
-                <div
-                  id={tabPanelId('analise')}
-                  role="tabpanel"
-                  aria-labelledby="aba-analise"
-                  hidden={tab !== 'analise'}
-                >
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-                    <div className="lg:col-span-4">
-                      <IntentionsDonut data={intentions} loading={loading} />
-                    </div>
-                    {/* Célula relativa: estica para igualar a altura do Donut via items-stretch */}
-                    <div className="lg:col-span-5 relative min-h-[300px]">
-                      <div className="absolute inset-0">
-                        <ProductsTable data={products} loading={loading} />
-                      </div>
-                    </div>
-                    <div className="lg:col-span-3">
-                      <SentimentBars data={sentiment} loading={loading} />
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  id={tabPanelId('insights')}
-                  role="tabpanel"
-                  aria-labelledby="aba-insights"
-                  hidden={tab !== 'insights'}
-                >
-                  <InsightCards youtubeId={selectedId} />
-                </div>
-              </>
-            )}
-
-          </div>
-        ) : (
-          <div className="pt-24 pb-12 px-6 lg:px-10 max-w-7xl mx-auto">
-            <HomePage
-              videos={videos}
-              onSelectVideo={id => {
-                setSelectedId(id);
-                setPage('dashboard');
-              }}
-              onRegister={() => setPage('register')}
-            />
-          </div>
-        )}
+        <div className="pt-24 pb-12 px-6 lg:px-10 max-w-7xl mx-auto">
+          <Outlet />
+        </div>
       </main>
     </div>
+    </ChannelsProvider>
+  );
+}
+
+/** Depois de registar, desce para o canal do vídeo novo: é onde ele aparece. */
+function RegisterRoute() {
+  const navigate = useNavigate();
+  const { refetchChannels } = useChannelsData();
+  return (
+    <RegisterVideoPage
+      onRegistered={video => {
+        refetchChannels();
+        navigate(videoPath(channelSegment(video.channel_id), video.youtube_id));
+      }}
+    />
   );
 }
 
@@ -435,10 +248,19 @@ function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route element={<PrivateRoute />}>
-        <Route path="/admin" element={<AdminRoute />}>
-          <Route index element={<AdminPage />} />
+        <Route element={<AppShell />}>
+          <Route index element={<HomePage />} />
+          <Route path={CHANNELS_PATH} element={<ChannelsPage />} />
+          <Route path="/canal/:channelId" element={<ChannelPage />} />
+          <Route path="/canal/:channelId/video/:youtubeId" element={<VideoPage />} />
+          <Route path={VIDEO_PICKER_PATH} element={<PickerPage />} />
+          <Route path={REGISTER_PATH} element={<RegisterRoute />} />
+          {/* Administração dentro da casca: navegar para lá não sai da aplicação */}
+          <Route path="/admin" element={<AdminRoute />}>
+            <Route index element={<AdminPage />} />
+          </Route>
+          <Route path="*" element={<Navigate to={HOME_PATH} replace />} />
         </Route>
-        <Route path="/*" element={<AppLayout />} />
       </Route>
     </Routes>
   );

@@ -9,7 +9,8 @@ const LEVELS = [
 ];
 
 interface Props {
-  data: SentimentResponse | null;
+  // Só as métricas: aceita a resposta por vídeo ou por canal.
+  data: Pick<SentimentResponse, 'distribution'> | null;
   loading: boolean;
 }
 
