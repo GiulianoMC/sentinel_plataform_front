@@ -1,11 +1,11 @@
-import { Clock, History, RotateCcw, Trash2, X } from 'lucide-react';
-import type { AskRequest } from '../../api/types';
+import { Clock, History, RotateCcw, Trash2, Tv, Video, X } from 'lucide-react';
+import type { AskRequest, AskScope } from '../../api/types';
 import { useAskHistory, type AskHistoryEntry } from '../../hooks/useAskHistory';
 import { describeFilters } from '../insights/labels';
 
 interface Props {
-  /** Repete a pergunta: troca o âmbito para o vídeo dela e reenvia. */
-  onRepeat: (youtubeId: string, request: AskRequest) => void;
+  /** Repete a pergunta: troca o âmbito para o dela e reenvia. */
+  onRepeat: (scope: AskScope, request: AskRequest) => void;
 }
 
 function relative(iso: string): string {
@@ -28,7 +28,7 @@ export function RecentQuestions({ onRepeat }: Props) {
   const repeat = (e: AskHistoryEntry) => {
     // A estratégia guardada é a que o backend usou; ao repetir deixa-se decidir
     // de novo, porque o contexto pode ter mudado desde então.
-    onRepeat(e.youtubeId, { question: e.question, strategy: 'auto', filters: e.filters });
+    onRepeat(e.scope, { question: e.question, strategy: 'auto', filters: e.filters });
   };
 
   return (
@@ -59,7 +59,7 @@ export function RecentQuestions({ onRepeat }: Props) {
           {entries.slice(0, 5).map(e => {
             const filters = describeFilters(e.filters);
             return (
-              <li key={`${e.youtubeId}-${e.question}`} className="group relative">
+              <li key={`${e.scope.kind}:${e.scope.id}-${e.question}`} className="group relative">
                 <button
                   type="button"
                   onClick={() => repeat(e)}
@@ -70,7 +70,10 @@ export function RecentQuestions({ onRepeat }: Props) {
                     <Clock size={10} className="shrink-0" />
                     {relative(e.askedAt)}
                     <span className="text-outline">•</span>
-                    <span className="truncate">{e.videoTitle ?? e.youtubeId}</span>
+                    {e.scope.kind === 'channel'
+                      ? <Tv size={10} className="shrink-0" />
+                      : <Video size={10} className="shrink-0" />}
+                    <span className="truncate">{e.scopeTitle ?? e.scope.id}</span>
                     {!e.answered && (
                       <span className="shrink-0 text-tertiary font-bold">sem evidência</span>
                     )}

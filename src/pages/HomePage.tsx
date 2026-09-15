@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clapperboard, Layers, PlusSquare, RefreshCw } from 'lucide-react';
-import type { AskRequest } from '../api/types';
+import type { AskRequest, AskScope } from '../api/types';
 import { useOverview } from '../hooks/useOverview';
 import { useChannelsData } from '../context/ChannelsContext';
 import { Breadcrumbs } from '../components/Breadcrumbs';
@@ -32,18 +32,46 @@ export function HomePage() {
   const videos = overview?.videos ?? [];
 
   // Âmbito da pergunta e pergunta pendente vinda do histórico.
-  const [askVideoId, setAskVideoId] = useState<string | null>(null);
+  const [askScope, setAskScope] = useState<AskScope | null>(null);
   const [pendingAsk, setPendingAsk] = useState<AskRequest | null>(null);
+  // Escolha deliberada (fita ou histórico) não é substituída pelo automático.
+  const chosen = useRef(false);
 
-  // Por defeito pergunta-se sobre o vídeo com mais comentários analisados: é o
-  // que tem contexto suficiente para a resposta não sair vazia.
+  // Por defeito pergunta-se sobre o canal com mais comentários analisados: é o
+  // que tem contexto suficiente para a resposta não sair vazia. Sem canais
+  // identificados o /ask por canal não existe, e o âmbito volta a ser um vídeo.
   useEffect(() => {
-    if (videos.length === 0) return;
-    const stillListed = askVideoId != null && videos.some(v => v.youtube_id === askVideoId);
-    if (stillListed) return;
-    const best = [...videos].sort((a, b) => b.analyzed_comments - a.analyzed_comments)[0];
-    setAskVideoId(best.youtube_id);
-  }, [videos, askVideoId]);
+    const listed = (scope: AskScope) =>
+      scope.kind === 'channel'
+        ? channels.some(c => c.channel_id === scope.id)
+        : videos.some(v => v.youtube_id === scope.id);
+
+    if (chosen.current) {
+      if (askScope != null && listed(askScope)) return;
+      chosen.current = false;   // o âmbito escolhido deixou de existir
+    }
+
+    const best: AskScope | null = channels.length > 0
+      ? {
+          kind: 'channel',
+          id: [...channels].sort((a, b) => b.analyzed_comments - a.analyzed_comments)[0].channel_id,
+        }
+      : videos.length > 0
+        ? {
+            kind: 'video',
+            id: [...videos].sort((a, b) => b.analyzed_comments - a.analyzed_comments)[0].youtube_id,
+          }
+        : null;
+
+    if (!best) return;
+    if (askScope?.kind === best.kind && askScope.id === best.id) return;
+    setAskScope(best);
+  }, [channels, videos, askScope]);
+
+  const selectScope = (scope: AskScope) => {
+    chosen.current = true;
+    setAskScope(scope);
+  };
 
   // Vídeos mais recentes primeiro: é o que interessa num feed.
   const recent = useMemo(
@@ -58,8 +86,10 @@ export function HomePage() {
     navigate(videoPath(channelSegment(v?.channel_id), youtubeId));
   };
 
-  function repeatQuestion(youtubeId: string, request: AskRequest) {
-    setAskVideoId(youtubeId);
+  // Repetir uma pergunta do histórico mantém-se na Home, seja ela de canal ou
+  // de vídeo: o âmbito passa a ser o dela e a caixa reenvia-a.
+  function repeatQuestion(scope: AskScope, request: AskRequest) {
+    selectScope(scope);
     setPendingAsk(request);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -132,21 +162,23 @@ export function HomePage() {
             data={overview}
             loading={loading}
             videosLabel="Vídeos registados"
-            sentimentLabel="Sentimento médio geral"
+            showSentiment={false}
           />
 
           {/* RAG à frente, com o histórico e o processamento em coluna ao lado */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-            <div className="xl:col-span-2">
+            {/* min-w-0: sem isto a coluna estica-se até caber a fita inteira e
+                ela deixa de rolar na horizontal em ecrãs estreitos. */}
+            <div className="min-w-0 xl:col-span-2">
               <HomeAsk
                 videos={videos}
                 loading={loading}
-                selectedId={askVideoId}
-                onSelect={id => { setAskVideoId(id); setPendingAsk(null); }}
+                scope={askScope}
+                onSelect={scope => { selectScope(scope); setPendingAsk(null); }}
                 pendingRequest={pendingAsk}
               />
             </div>
-            <div className="space-y-6">
+            <div className="min-w-0 space-y-6">
               <RecentQuestions onRepeat={repeatQuestion} />
               <ProcessingList videos={videos} loading={loading} onOpenVideo={openVideo} />
             </div>

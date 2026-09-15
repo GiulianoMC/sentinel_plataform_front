@@ -14,12 +14,24 @@ interface Props {
   /** Rótulo do primeiro cartão, que muda com o âmbito (canal, global). */
   videosLabel?: string;
   sentimentLabel?: string;
+  /**
+   * O cartão de sentimento só faz sentido num âmbito real. Somar a média de
+   * canais diferentes num número só não descreve nada, por isso a Visão Geral
+   * dispensa-o e deixa o sentimento para a tela do canal e a do vídeo.
+   */
+  showSentiment?: boolean;
 }
 
 const fmt = (n: number) => n.toLocaleString('pt-PT');
 
-/** Os quatro números que resumem um âmbito: vídeos, comentários, cobertura e sentimento. */
-export function ScopeStats({ data, loading, videosLabel = 'Vídeos', sentimentLabel = 'Sentimento médio' }: Props) {
+/** Os números que resumem um âmbito: vídeos, comentários, cobertura e, quando o âmbito é um só, sentimento. */
+export function ScopeStats({
+  data,
+  loading,
+  videosLabel = 'Vídeos',
+  sentimentLabel = 'Sentimento médio',
+  showSentiment = true,
+}: Props) {
   const coverage = data && data.total_comments > 0
     ? Math.round((data.analyzed_comments / data.total_comments) * 100)
     : 0;
@@ -53,7 +65,10 @@ export function ScopeStats({ data, loading, videosLabel = 'Vídeos', sentimentLa
       progress: coverage,
       valueClass: 'text-on-surface',
     },
-    {
+  ];
+
+  if (showSentiment) {
+    stats.push({
       icon: Smile,
       iconClass: 'text-green-400 bg-green-500/10',
       label: sentimentLabel,
@@ -61,11 +76,11 @@ export function ScopeStats({ data, loading, videosLabel = 'Vídeos', sentimentLa
       sub: data?.average_sentiment != null ? '/ 5' : 'sem dados',
       progress: null as number | null,
       valueClass: meta.color,
-    },
-  ];
+    });
+  }
 
   return (
-    <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+    <div className={`grid grid-cols-2 gap-4 ${showSentiment ? 'xl:grid-cols-4' : 'xl:grid-cols-3'}`}>
       {stats.map(s => (
         <div key={s.label} className="glass-card rounded-2xl p-4 flex flex-col gap-3">
           <div className={`p-2 rounded-lg w-fit ${s.iconClass}`}>

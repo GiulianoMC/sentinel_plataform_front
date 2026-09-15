@@ -1,15 +1,23 @@
 import { Sparkles, Info } from 'lucide-react';
-import type { SuggestedQuestion } from '../../api/types';
+import type { AskScope, SuggestedQuestion } from '../../api/types';
 import { reasonLabel } from './labels';
 
 interface Props {
   questions: SuggestedQuestion[];
   loading: boolean;
   disabled?: boolean;
+  /** Só muda o sujeito dos textos: "deste vídeo" ou "deste canal". */
+  scopeKind?: AskScope['kind'];
   onSelect: (question: SuggestedQuestion) => void;
 }
 
-export function SuggestedQuestions({ questions, loading, disabled, onSelect }: Props) {
+export function SuggestedQuestions({
+  questions,
+  loading,
+  disabled,
+  scopeKind = 'video',
+  onSelect,
+}: Props) {
   if (loading) {
     return (
       <div className="flex flex-wrap gap-2">
@@ -29,8 +37,8 @@ export function SuggestedQuestions({ questions, loading, disabled, onSelect }: P
       <div className="flex items-start gap-2 rounded-xl border border-outline-variant/20 bg-surface-container p-3">
         <Info size={16} className="text-on-surface-variant flex-shrink-0 mt-0.5" />
         <p className="text-xs text-on-surface-variant">
-          Os comentários deste vídeo ainda não foram analisados pela IA. As sugestões ficam disponíveis
-          assim que a análise avançar.
+          Os comentários {scopeKind === 'channel' ? 'deste canal' : 'deste vídeo'} ainda não foram
+          analisados pela IA. As sugestões ficam disponíveis assim que a análise avançar.
         </p>
       </div>
     );
@@ -48,7 +56,7 @@ export function SuggestedQuestions({ questions, loading, disabled, onSelect }: P
             key={q.question}
             type="button"
             disabled={disabled}
-            title={reasonLabel(q.reason)}
+            title={reasonLabel(q.reason, scopeKind)}
             onClick={() => onSelect(q)}
             className="rounded-full bg-primary/10 text-primary px-3 py-1.5 text-xs font-medium
                        hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, HelpCircle, Info, PlusSquare, RefreshCw, Tv } from 'lucide-react';
-import type { VideoOverviewItem } from '../api/types';
+import { ArrowLeft, HelpCircle, Info, MessageSquareText, PlusSquare, RefreshCw, Tv } from 'lucide-react';
+import type { AskScope, VideoOverviewItem } from '../api/types';
 import { useChannelsData } from '../context/ChannelsContext';
 import { useChannelAnalytics } from '../hooks/useChannelAnalytics';
 import { useOverview } from '../hooks/useOverview';
@@ -13,6 +13,7 @@ import { BackfillBanner } from '../components/BackfillBanner';
 import { IntentionsDonut } from '../components/IntentionsDonut';
 import { ProductsTable } from '../components/ProductsTable';
 import { SentimentBars } from '../components/SentimentBars';
+import { AskInsight } from '../components/insights/AskInsight';
 import { CHANNELS_PATH, HOME_PATH, NO_CHANNEL, REGISTER_PATH, channelPath, isNoChannel, videoPath } from '../lib/routes';
 
 /**
@@ -73,6 +74,9 @@ export function ChannelPage() {
   const stats: ScopeStatsData | null = noChannel
     ? (overview ? aggregate(videos) : null)
     : overview;
+
+  // Identidade estável: o AskInsight reinicia sempre que o âmbito muda.
+  const askScope = useMemo<AskScope>(() => ({ kind: 'channel', id: channelId }), [channelId]);
 
   const withoutChannel = channelsOverview?.videos_without_channel ?? 0;
   const unknownChannel = !noChannel && !channelsLoading && channel == null;
@@ -160,6 +164,25 @@ export function ChannelPage() {
         <div className="glass-card rounded-xl p-4 border border-error/20 text-error text-sm">
           {error ?? analytics.error}
         </div>
+      )}
+
+      {/* Pergunte à IA: o pseudo-canal não existe no backend, não tem /ask */}
+      {!noChannel && (
+        <section className="relative overflow-hidden rounded-2xl border border-primary/20 bg-surface-container p-6 md:p-8">
+          <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+          <div className="relative space-y-5">
+            <div>
+              <h3 className="text-xl font-bold text-on-surface flex items-center gap-2">
+                <MessageSquareText size={20} className="text-primary" />
+                Pergunte à IA sobre este canal
+              </h3>
+              <p className="text-sm text-on-surface-variant mt-1">
+                Respostas fundamentadas nos comentários de todos os vídeos deste canal, com as fontes citadas
+              </p>
+            </div>
+            <AskInsight scope={askScope} scopeTitle={title} />
+          </div>
+        </section>
       )}
 
       {/* Dados gerais do canal */}

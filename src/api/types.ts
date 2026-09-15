@@ -111,6 +111,14 @@ export interface SentimentResponse {
 // Módulo de Insights
 // ---------------------------------------------------------------------------
 
+/**
+ * Âmbito de uma pergunta à IA. O /ask e as perguntas sugeridas existem em dois
+ * escopos, um vídeo ou um canal inteiro; o resto dos insights é só por vídeo.
+ */
+export type AskScope =
+  | { kind: 'video'; id: string }
+  | { kind: 'channel'; id: string };
+
 /** Filtros estruturados, partilhados entre /search e /ask. */
 export interface InsightFilters {
   sentiment_min?: number | null;   // 1..5
@@ -142,7 +150,8 @@ export interface SuggestedQuestion {
 }
 
 export interface SuggestedQuestionsResponse {
-  youtube_id: string;
+  youtube_id: string | null;       // null no escopo canal
+  channel_id: string | null;       // null no escopo vídeo
   questions: SuggestedQuestion[];
 }
 
@@ -162,6 +171,9 @@ export interface SourceComment {
   intent: string | null;
   product_mentioned: string | null;
   distance: number | null;         // null quando strategy_used === "sample"
+  /** De que vídeo veio a evidência; no escopo canal as fontes misturam vídeos. */
+  youtube_id: string;
+  video_title: string | null;
 }
 
 export interface AskResponse {

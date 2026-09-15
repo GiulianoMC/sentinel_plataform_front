@@ -185,15 +185,16 @@ function AppShell() {
       <main className="md:ml-64 min-h-screen">
         {/* TopNavBar */}
         <header className="fixed top-0 right-0 left-0 md:left-64 z-40 bg-[#0b1326]/60 backdrop-blur-xl flex justify-between items-center px-6 h-16 gap-4">
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <span className="text-sm font-semibold text-on-surface-variant hidden md:block">{active.label}</span>
-            {/* Navegação mobile */}
-            <nav className="flex items-center gap-1 md:hidden">
+            {/* Navegação mobile: rola na horizontal em vez de passar por baixo
+                do bloco da conta, que não encolhe. */}
+            <nav className="flex items-center gap-1 md:hidden min-w-0 overflow-x-auto overscroll-x-contain">
               {items.map(({ key, label, to, isActive }) => (
                 <button
                   key={key}
                   onClick={() => navigate(to)}
-                  className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                  className={`shrink-0 whitespace-nowrap px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${
                     isActive(location.pathname)
                       ? 'text-primary bg-primary/10'
                       : 'text-on-surface-variant hover:text-on-surface'
@@ -242,6 +243,19 @@ function RegisterRoute() {
   );
 }
 
+/**
+ * O router não repõe a posição da página ao mudar de rota: sem isto, abrir um
+ * vídeo a partir do fundo de uma lista deixava a tela nova aberta a meio, no
+ * deslocamento que a anterior tinha. Cada nível da hierarquia é uma tela nova,
+ * por isso começa sempre no topo — incluindo ao voltar atrás, já que cada tela
+ * recarrega os dados e a restauração nativa do browser cairia no sítio errado.
+ */
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo({ top: 0, left: 0 }); }, [pathname]);
+  return null;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -270,6 +284,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <ScrollToTop />
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>

@@ -1,14 +1,27 @@
 import type { SourceComment } from '../../api/types';
+import { videoPath } from '../../lib/routes';
 import { CommentCard } from './CommentCard';
 
 interface Props {
   sources: SourceComment[];
   strategyUsed: 'semantic' | 'sample';
   commentsInContext: number;
+  /**
+   * Canal a usar nos links das fontes. Só o âmbito canal o passa: aí as
+   * evidências vêm de vídeos diferentes e vale a pena dizer de qual. No âmbito
+   * vídeo são todas do vídeo que já está em ecrã, e a linha seria ruído.
+   */
+  channelId?: string | null;
   registerRef: (index: number, el: HTMLDivElement | null) => void;
 }
 
-export function EvidenceList({ sources, strategyUsed, commentsInContext, registerRef }: Props) {
+export function EvidenceList({
+  sources,
+  strategyUsed,
+  commentsInContext,
+  channelId = null,
+  registerRef,
+}: Props) {
   if (sources.length === 0) return null;
 
   // Explica porque as fontes mudam de natureza entre perguntas.
@@ -40,6 +53,8 @@ export function EvidenceList({ sources, strategyUsed, commentsInContext, registe
           product={s.product_mentioned}
           // Em `sample` a distância é null; o rótulo de relevância não se aplica.
           distance={strategyUsed === 'semantic' ? s.distance : null}
+          videoTitle={channelId ? s.video_title : null}
+          videoHref={channelId ? videoPath(channelId, s.youtube_id) : null}
           innerRef={el => { registerRef(s.index, el); }}
         />
       ))}

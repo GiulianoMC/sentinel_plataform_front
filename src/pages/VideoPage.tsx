@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, BarChart3, Cpu, MessageSquareText, RefreshCw, Sparkles, Trash2, Tv } from 'lucide-react';
+import type { AskScope } from '../api/types';
 import { useVideos } from '../hooks/useVideos';
 import { useAnalytics } from '../hooks/useAnalytics';
 import { useChannelsData } from '../context/ChannelsContext';
@@ -45,6 +46,8 @@ export function VideoPage() {
   const [deleting, setDeleting] = useState(false);
 
   const video = scopedVideos.find(v => v.youtube_id === youtubeId) ?? null;
+  // Identidade estável: o AskInsight reinicia sempre que o âmbito muda.
+  const askScope = useMemo<AskScope>(() => ({ kind: 'video', id: youtubeId }), [youtubeId]);
   const channel = channels.find(c => c.channel_id === channelId) ?? null;
   const channelTitle = noChannel ? 'Sem canal identificado' : channel?.channel_title ?? channelId;
   const title = video?.titulo ?? youtubeId;
@@ -210,7 +213,7 @@ export function VideoPage() {
               Respostas fundamentadas nos comentários, com as fontes citadas e clicáveis
             </p>
           </div>
-          <AskInsight youtubeId={youtubeId} />
+          <AskInsight scope={askScope} scopeTitle={video?.titulo ?? null} />
         </div>
       </section>
 

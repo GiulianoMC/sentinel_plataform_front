@@ -3,7 +3,7 @@ import { Send, Info, Loader2, Sparkles, RotateCcw, FilterX } from 'lucide-react'
 import { useInsightsChat } from '../../hooks/useInsightsChat';
 import { recordAsk } from '../../hooks/useAskHistory';
 import { useSuggestedQuestions } from '../../hooks/useSuggestedQuestions';
-import type { AskRequest, SuggestedQuestion } from '../../api/types';
+import type { AskRequest, AskScope, SuggestedQuestion } from '../../api/types';
 import { SuggestedQuestions } from './SuggestedQuestions';
 import { EvidenceList } from './EvidenceList';
 import { InsightError, isRateLimited } from './InsightError';
@@ -13,9 +13,10 @@ import { describeFilters } from './labels';
 const SLOW_HINT_MS = 10_000;
 
 interface Props {
-  youtubeId: string;
-  /** Título para o histórico de perguntas; o id sozinho não diz nada a ninguém. */
-  videoTitle?: string | null;
+  /** Vídeo ou canal a que a pergunta se dirige. */
+  scope: AskScope;
+  /** Título do âmbito, para o histórico; o id sozinho não diz nada a ninguém. */
+  scopeTitle?: string | null;
   /** Pergunta a enviar logo ao montar, vinda do histórico ou de outra tela. */
   initialQuestion?: AskRequest | null;
 }
@@ -24,17 +25,21 @@ interface Props {
  * Hero do painel: a pergunta à IA é a interacção principal do produto, por
  * isso a caixa é grande, fica sempre visível e a resposta abre no mesmo lugar.
  */
-export function AskInsight({ youtubeId, videoTitle = null, initialQuestion = null }: Props) {
+export function AskInsight({ scope, scopeTitle = null, initialQuestion = null }: Props) {
   const [input, setInput] = useState('');
   const [slow, setSlow] = useState(false);
   const lastRequest = useRef<AskRequest | null>(null);
   const { registerRef, resetRefs, focusIndex } = useCitationRefs();
 
-  const { asking, result, error, usedFallback, ask, clearError, reset } = useInsightsChat(youtubeId);
-  const { questions, loading: loadingQuestions } = useSuggestedQuestions(youtubeId);
+  // O âmbito pode chegar como objecto novo a cada render; é a chave que diz
+  // se mudou mesmo, e é ela que entra nas dependências dos efeitos.
+  const scopeKey = `${scope.kind}:${scope.id}`;
 
-  // Limpa o input ao trocar de vídeo (o hook já limpa resposta e erro)
-  useEffect(() => { setInput(''); }, [youtubeId]);
+  const { asking, result, error, usedFallback, ask, clearError, reset } = useInsightsChat(scope);
+  const { questions, loading: loadingQuestions } = useSuggestedQuestions(scope);
+
+  // Limpa o input ao trocar de âmbito (o hook já limpa resposta e erro)
+  useEffect(() => { setInput(''); }, [scopeKey]);
 
   // Aviso de "ainda a processar" — o /ask não faz streaming, a resposta chega inteira
   useEffect(() => {
@@ -50,7 +55,7 @@ export function AskInsight({ youtubeId, videoTitle = null, initialQuestion = nul
   }, [ask, resetRefs]);
 
   // Uma pergunta pedida de fora (histórico da Home) entra como se tivesse sido
-  // escrita aqui. O id do vídeo entra na chave para reenviar ao trocar de vídeo.
+  // escrita aqui. O âmbito entra na chave para reenviar ao trocar de âmbito.
   useEffect(() => {
     if (!initialQuestion) return;
     setInput(initialQuestion.question);
@@ -62,15 +67,17 @@ export function AskInsight({ youtubeId, videoTitle = null, initialQuestion = nul
     if (asking || !result || !lastRequest.current) return;
     recordAsk({
       question: lastRequest.current.question,
-      youtubeId,
-      videoTitle,
+      scope,
+      scopeTitle,
       strategy: result.strategy_used,
       filters: lastRequest.current.filters ?? null,
       askedAt: new Date().toISOString(),
       commentsInContext: result.comments_in_context,
       answered: result.llm_called,
     });
-  }, [asking, result, youtubeId, videoTitle]);
+    // `scope` fica fora das dependências de propósito: quem o identifica é a
+    // scopeKey, e o objecto pode ser novo a cada render sem nada ter mudado.
+  }, [asking, result, scopeKey, scopeTitle]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,6 +148,7 @@ export function AskInsight({ youtubeId, videoTitle = null, initialQuestion = nul
           questions={questions}
           loading={loadingQuestions}
           disabled={blocked}
+          scopeKind={scope.kind}
           onSelect={handleSuggestion}
         />
       )}
@@ -226,6 +234,7 @@ export function AskInsight({ youtubeId, videoTitle = null, initialQuestion = nul
             sources={result.sources}
             strategyUsed={result.strategy_used}
             commentsInContext={result.comments_in_context}
+            channelId={scope.kind === 'channel' ? scope.id : null}
             registerRef={registerRef}
           />
         </div>

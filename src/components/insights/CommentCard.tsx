@@ -1,3 +1,4 @@
+import { Video } from 'lucide-react';
 import { SentimentBadge } from './SentimentBadge';
 import { IntentBadge } from './IntentBadge';
 import { formatDateTime, relevanceLabel, titleCase } from './labels';
@@ -13,6 +14,9 @@ interface Props {
   distance?: number | null;
   /** Número da citação [i], quando o card é uma fonte do /ask. */
   index?: number;
+  /** Vídeo de origem; só vale a pena mostrar quando as fontes misturam vídeos. */
+  videoTitle?: string | null;
+  videoHref?: string | null;
   innerRef?: (el: HTMLDivElement | null) => void;
 }
 
@@ -25,6 +29,8 @@ export function CommentCard({
   product,
   distance,
   index,
+  videoTitle,
+  videoHref,
   innerRef,
 }: Props) {
   const relevance = relevanceLabel(distance ?? null);
@@ -49,6 +55,17 @@ export function CommentCard({
           </span>
         )}
       </div>
+
+      {videoTitle && videoHref && (
+        <a
+          href={videoHref}
+          title={videoTitle}
+          className="mb-2 flex items-center gap-1 text-[10px] text-on-surface-variant/70 hover:text-primary transition-colors"
+        >
+          <Video size={10} className="shrink-0" />
+          <span className="truncate">no vídeo {videoTitle}</span>
+        </a>
+      )}
 
       <p className="text-sm text-on-surface-variant whitespace-pre-wrap break-words">{text}</p>
 

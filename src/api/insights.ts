@@ -1,6 +1,7 @@
 import { get, post } from './client';
 import type {
   AskRequest,
+  AskScope,
   AskResponse,
   CommentDetail,
   HybridSearchResult,
@@ -19,6 +20,16 @@ function filterParams(filters?: InsightFilters | null): string {
   if (filters.product) params.set('product', filters.product);
   const qs = params.toString();
   return qs ? `&${qs}` : '';
+}
+
+/**
+ * Prefixo do /ask e das perguntas sugeridas. São os únicos endpoints de
+ * insights que existem por canal; cards, busca e comments/by-ids continuam
+ * só por vídeo.
+ */
+function insightsBase(scope: AskScope): string {
+  const id = encodeURIComponent(scope.id);
+  return scope.kind === 'channel' ? `/insights/channels/${id}` : `/insights/${id}`;
 }
 
 export interface SearchOptions {
@@ -40,11 +51,11 @@ export const searchComments = (
     { signal },
   );
 
-export const fetchSuggestedQuestions = (youtubeId: string, signal?: AbortSignal) =>
-  get<SuggestedQuestionsResponse>(`/insights/${youtubeId}/suggested-questions`, { signal });
+export const fetchSuggestedQuestions = (scope: AskScope, signal?: AbortSignal) =>
+  get<SuggestedQuestionsResponse>(`${insightsBase(scope)}/suggested-questions`, { signal });
 
-export const askInsight = (youtubeId: string, body: AskRequest, signal?: AbortSignal) =>
-  post<AskResponse>(`/insights/${youtubeId}/ask`, body, { signal });
+export const askInsight = (scope: AskScope, body: AskRequest, signal?: AbortSignal) =>
+  post<AskResponse>(`${insightsBase(scope)}/ask`, body, { signal });
 
 export const fetchInsightCards = (youtubeId: string, signal?: AbortSignal) =>
   get<InsightCardsResponse>(`/insights/${youtubeId}/cards`, { signal });

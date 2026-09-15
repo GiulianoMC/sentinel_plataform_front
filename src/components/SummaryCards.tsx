@@ -24,9 +24,13 @@ export function SummaryCards({ data, loading }: Props) {
   const isLive = !loading && data != null && data.analyzed_comments < data.total_comments;
 
   return (
-    <div className="glass-card rounded-2xl flex items-stretch divide-x divide-outline-variant/15">
+    // Em ecrã estreito as três células não cabem lado a lado: empilham-se, e a
+    // linha divisória passa de vertical a horizontal com elas. A linha só volta
+    // em `lg` porque a barra lateral fixa de 16rem entra já em `md` e rouba-lhe
+    // a largura toda.
+    <div className="glass-card rounded-2xl flex flex-col lg:flex-row lg:items-stretch divide-y lg:divide-y-0 lg:divide-x divide-outline-variant/15">
       {/* Total de Comentários */}
-      <div className="flex-1 flex items-center gap-4 px-6 py-4">
+      <div className="flex-1 flex items-center gap-4 px-5 py-4 lg:px-6">
         <div className="p-2 rounded-lg bg-primary/10 flex-shrink-0">
           <MessageSquare className="text-primary" size={18} />
         </div>
@@ -45,7 +49,7 @@ export function SummaryCards({ data, loading }: Props) {
       </div>
 
       {/* Analisados */}
-      <div className="flex-1 flex items-center gap-4 px-6 py-4">
+      <div className="flex-1 flex items-center gap-4 px-5 py-4 lg:px-6">
         <div className="p-2 rounded-lg bg-tertiary/10 flex-shrink-0">
           <Activity className="text-tertiary" size={18} />
         </div>
@@ -69,7 +73,7 @@ export function SummaryCards({ data, loading }: Props) {
       </div>
 
       {/* Sentimento Médio */}
-      <div className="flex-1 flex items-center gap-4 px-6 py-4">
+      <div className="flex-1 flex items-center gap-4 px-5 py-4 lg:px-6">
         <div className="p-2 rounded-lg bg-green-500/10 flex-shrink-0">
           <Smile className="text-green-400" size={18} />
         </div>

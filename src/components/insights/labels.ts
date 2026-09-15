@@ -1,4 +1,4 @@
-import type { InsightCardKind, InsightFilters } from '../../api/types';
+import type { AskScope, InsightCardKind, InsightFilters } from '../../api/types';
 
 /**
  * `distance` é distância de cosseno (0 = idêntico; o back corta em 0.6).
@@ -46,6 +46,8 @@ export function intentLabel(intent: string): string {
 const REASON_LABELS: Record<string, string> = {
   sem_analise: 'Este vídeo ainda não tem comentários analisados pela IA',
   fallback: 'Ponto de partida sugerido para qualquer vídeo',
+  canal_comparar_videos: 'Há vários vídeos neste canal para comparar',
+  canal_produtos_transversais: 'Produtos aparecem em mais de um vídeo',
   duvidas_dominantes: 'A maioria dos comentários são dúvidas',
   intencao_compra_dominante: 'Predomina intenção de compra nos comentários',
   sentimento_baixo: 'O sentimento médio deste vídeo está baixo',
@@ -53,11 +55,23 @@ const REASON_LABELS: Record<string, string> = {
   sentimento_alto: 'O sentimento médio deste vídeo está alto',
 };
 
-export function reasonLabel(reason: string): string {
+/** Os slugs genéricos servem os dois âmbitos; o texto é que muda de sujeito. */
+const CHANNEL_REASON_LABELS: Record<string, string> = {
+  sem_analise: 'Este canal ainda não tem comentários analisados pela IA',
+  fallback: 'Ponto de partida sugerido para qualquer canal',
+};
+
+export function reasonLabel(reason: string, scopeKind: AskScope['kind'] = 'video'): string {
   const [kind, product] = reason.split(':');
   if (kind === 'produto_critico' && product) return `${titleCase(product)} está com avaliações negativas`;
   if (kind === 'produto_elogiado' && product) return `${titleCase(product)} está bem avaliado`;
-  return REASON_LABELS[reason] ?? 'Sugerido a partir dos dados deste vídeo';
+  if (scopeKind === 'channel' && CHANNEL_REASON_LABELS[reason]) return CHANNEL_REASON_LABELS[reason];
+  return (
+    REASON_LABELS[reason] ??
+    (scopeKind === 'channel'
+      ? 'Sugerido a partir dos dados deste canal'
+      : 'Sugerido a partir dos dados deste vídeo')
+  );
 }
 
 // ---------------------------------------------------------------------------
